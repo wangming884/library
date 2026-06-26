@@ -107,51 +107,102 @@ const handleLogin = async () => {
   justify-content: center;
   align-items: center;
   min-height: 100vh;
-  background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+  background: linear-gradient(-45deg, #12c2e9, #c471ed, #f64f59);
+  background-size: 400% 400%;
+  animation: gradientBG 15s ease infinite;
+}
+
+@keyframes gradientBG {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
 }
 
 .login-card {
   width: 420px;
-  border-radius: 12px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 0 15px 35px rgba(31, 38, 135, 0.15);
+  transition: transform 0.4s ease, box-shadow 0.4s ease;
+}
+
+.login-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 20px 40px rgba(31, 38, 135, 0.2);
 }
 
 .card-header {
   text-align: center;
+  padding-top: 10px;
 }
 
 .card-header h2 {
-  margin: 0 0 8px;
+  margin: 0 0 10px;
   color: #303133;
-  font-size: 24px;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: 1px;
 }
 
 .card-header p {
   margin: 0;
-  color: #909399;
-  font-size: 14px;
+  color: #606266;
+  font-size: 15px;
+  letter-spacing: 0.5px;
 }
 
 .login-btn {
   width: 100%;
+  height: 44px;
+  font-size: 16px;
+  font-weight: 600;
+  border-radius: 8px;
+  letter-spacing: 2px;
+  background: linear-gradient(to right, #4facfe 0%, #00f2fe 100%);
+  border: none;
+  transition: all 0.3s;
+}
+
+.login-btn:hover {
+  transform: scale(1.02);
+  box-shadow: 0 8px 15px rgba(0, 242, 254, 0.4);
 }
 
 .card-footer {
   text-align: center;
-  margin-top: 12px;
+  margin-top: 15px;
   font-size: 14px;
 }
 
 .card-footer a {
   color: #409eff;
+  font-weight: 500;
   text-decoration: none;
+  transition: color 0.3s;
 }
 
 .card-footer a:hover {
+  color: #66b1ff;
   text-decoration: underline;
 }
 
 .card-footer .divider {
-  margin: 0 8px;
+  margin: 0 12px;
   color: #dcdfe6;
+}
+
+/* 覆盖 el-card 的一些默认样式 */
+:deep(.el-card__header) {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+:deep(.el-input__wrapper) {
+  background-color: rgba(255, 255, 255, 0.8);
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.05) inset;
+}
+:deep(.el-input__wrapper.is-focus) {
+  box-shadow: 0 0 0 1px #409eff inset;
 }
 </style>

@@ -191,48 +191,99 @@ onMounted(() => {
   justify-content: center;
   align-items: center;
   min-height: 100vh;
-  background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+  background: linear-gradient(-45deg, #ff9a9e, #fecfef, #a18cd1, #fbc2eb);
+  background-size: 400% 400%;
+  animation: gradientBG 15s ease infinite;
   padding: 40px 0;
 }
 
+@keyframes gradientBG {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
 .register-card {
-  width: 520px;
-  border-radius: 12px;
+  width: 560px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 0 15px 35px rgba(31, 38, 135, 0.15);
+  transition: transform 0.4s ease, box-shadow 0.4s ease;
+}
+
+.register-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 20px 40px rgba(31, 38, 135, 0.2);
 }
 
 .card-header {
   text-align: center;
+  padding-top: 10px;
 }
 
 .card-header h2 {
-  margin: 0 0 8px;
+  margin: 0 0 10px;
   color: #303133;
-  font-size: 24px;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: 1px;
 }
 
 .card-header p {
   margin: 0;
-  color: #909399;
-  font-size: 14px;
+  color: #606266;
+  font-size: 15px;
+  letter-spacing: 0.5px;
 }
 
 .register-btn {
   width: 100%;
+  height: 44px;
+  font-size: 16px;
+  font-weight: 600;
+  border-radius: 8px;
+  letter-spacing: 2px;
+  background: linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%);
+  border: none;
+  transition: all 0.3s;
+}
+
+.register-btn:hover {
+  transform: scale(1.02);
+  box-shadow: 0 8px 15px rgba(161, 140, 209, 0.5);
 }
 
 .card-footer {
   text-align: center;
-  margin-top: 12px;
+  margin-top: 15px;
   font-size: 14px;
-  color: #909399;
+  color: #606266;
 }
 
 .card-footer a {
-  color: #409eff;
+  color: #a18cd1;
+  font-weight: 600;
   text-decoration: none;
+  transition: color 0.3s;
 }
 
 .card-footer a:hover {
+  color: #896ab8;
   text-decoration: underline;
+}
+
+/* 覆盖 el-card 和 input 默认样式 */
+:deep(.el-card__header) {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+:deep(.el-input__wrapper), :deep(.el-select .el-input__wrapper) {
+  background-color: rgba(255, 255, 255, 0.7);
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.05) inset;
+}
+:deep(.el-input__wrapper.is-focus), :deep(.el-select .el-input__wrapper.is-focus) {
+  box-shadow: 0 0 0 1px #a18cd1 inset;
 }
 </style>
