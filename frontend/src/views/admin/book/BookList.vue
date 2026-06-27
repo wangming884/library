@@ -91,7 +91,7 @@
           <el-input v-model="form.keywords" placeholder="多个关键字用逗号分隔" />
         </el-form-item>
         <el-form-item label="珍稀图书">
-          <el-switch v-model="form.isRare" />
+          <el-switch v-model="form.isRare" :active-value="1" :inactive-value="0" />
         </el-form-item>
         <el-form-item label="简介" prop="description">
           <el-input v-model="form.description" type="textarea" :rows="3" placeholder="请输入简介" />
@@ -162,7 +162,7 @@ const editingId = ref(null)
 
 const defaultForm = () => ({
   isbn: '', title: '', author: '', publisher: '', pubDate: '',
-  categoryId: '', price: 0, description: '', keywords: '', isRare: false
+  categoryId: '', price: 0, description: '', keywords: '', isRare: 0
 })
 const form = reactive(defaultForm())
 
@@ -193,7 +193,7 @@ const handleEdit = (row) => {
     publisher: row.publisher, pubDate: row.pubDate,
     categoryId: row.categoryId, price: row.price,
     description: row.description, keywords: row.keywords,
-    isRare: !!row.isRare
+    isRare: row.isRare || 0
   })
   dialogVisible.value = true
 }
