@@ -15,17 +15,27 @@
               <el-tag :type="borrowStatusType(row.status)">{{ borrowStatusLabel(row.status) }}</el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="120" fixed="right">
+          <el-table-column label="操作" width="190" fixed="right">
             <template #default="{ row }">
-              <el-button
-                v-if="row.status === 1"
-                size="small"
-                type="primary"
-                :loading="row._renewing"
-                @click="handleRenew(row)"
-              >
-                续借
-              </el-button>
+              <template v-if="row.status === 1 || row.status === 3">
+                <el-button
+                  v-if="row.status === 1"
+                  size="small"
+                  type="primary"
+                  :loading="row._renewing"
+                  @click="handleRenew(row)"
+                >
+                  续借
+                </el-button>
+                <el-button
+                  size="small"
+                  type="success"
+                  :loading="row._returning"
+                  @click="handleReturn(row)"
+                >
+                  提前归还
+                </el-button>
+              </template>
               <span v-else>-</span>
             </template>
           </el-table-column>
@@ -184,7 +194,7 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { myBorrowRecords, myReservations, cancelReservation, readerRenew } from '../../api/modules/borrow'
+import { myBorrowRecords, myReservations, cancelReservation, readerRenew, readerReturnBook } from '../../api/modules/borrow'
 import { myFines, myUnpaidAmount } from '../../api/modules/fine'
 import { getProfile, updateProfile, changeReaderPassword } from '../../api/modules/reader'
 
@@ -225,6 +235,24 @@ const handleRenew = async (row) => {
     // handled
   } finally {
     row._renewing = false
+  }
+}
+
+const handleReturn = async (row) => {
+  try {
+    await ElMessageBox.confirm('确认现在归还这本书？归还后该副本会重新变为可借。', '提前归还确认', {
+      type: 'warning',
+      confirmButtonText: '确认归还',
+      cancelButtonText: '取消'
+    })
+    row._returning = true
+    const res = await readerReturnBook(row.id)
+    ElMessage.success(res.data?.remark || '归还成功')
+    fetchBorrowRecords()
+  } catch {
+    // handled
+  } finally {
+    row._returning = false
   }
 }
 

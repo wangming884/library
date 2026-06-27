@@ -10,7 +10,8 @@ if not defined CATALINA_HOME set "CATALINA_HOME=E:\Apache Software Foundation\To
 set "APP_NAME=library"
 set "PROJECT_DIR=%~dp0"
 set "FRONTEND_DIR=%PROJECT_DIR%frontend"
-set "BUILD_DIR=%PROJECT_DIR%target"
+set "DEPLOY_ROOT=%PROJECT_DIR%target-deploy"
+set "BUILD_DIR=%DEPLOY_ROOT%\build-%RANDOM%-%RANDOM%"
 set "WAR_FILE=%BUILD_DIR%\%APP_NAME%.war"
 set "WEBAPPS_DIR=%CATALINA_HOME%\webapps"
 set "APP_DIR=%WEBAPPS_DIR%\%APP_NAME%"
@@ -42,12 +43,11 @@ popd
 
 echo ===== 2. Package WAR =====
 pushd "%PROJECT_DIR%" || goto :project_dir_failed
-call mvn clean package -DskipTests
+call mvn "-Ddeploy.build.directory=%BUILD_DIR%" clean package -DskipTests
 if errorlevel 1 (
     popd
     echo Maven package failed.
-    echo If the error says target files cannot be deleted or copied, close IntelliJ/VS Code Java,
-    echo stop any running java.exe/Tomcat process for this project, then run the script again.
+    echo Check the Maven error above. This script uses target-deploy to avoid locked target files.
     goto :failed
 )
 popd
@@ -55,6 +55,17 @@ popd
 if not exist "%WAR_FILE%" (
     echo WAR file not found: "%WAR_FILE%"
     goto :failed
+)
+
+call :cleanup_old_builds
+
+if /i "%~1"=="--build-only" (
+    echo.
+    echo ===== Build completed =====
+    echo WAR: "%WAR_FILE%"
+    echo Tomcat deploy was skipped because --build-only was used.
+    echo.
+    exit /b 0
 )
 
 echo ===== 3. Stop Tomcat =====
@@ -100,7 +111,6 @@ echo ===== Deploy completed =====
 echo URL: http://localhost:8080/%APP_NAME%/
 echo If it does not open, check "%CATALINA_HOME%\logs\catalina.*.log"
 echo.
-pause
 exit /b 0
 
 :check_env
@@ -145,6 +155,22 @@ exit /b 0
 timeout /t %1 /nobreak >nul
 exit /b 0
 
+:cleanup_old_builds
+echo ===== Clean old Maven build artifacts =====
+if not exist "%DEPLOY_ROOT%" (
+    exit /b 0
+)
+for /d %%D in ("%DEPLOY_ROOT%\build-*") do (
+    if /i not "%%~fD"=="%BUILD_DIR%" (
+        echo Removing old build directory: "%%~fD"
+        rd /s /q "%%~fD" 2>nul
+        if exist "%%~fD" (
+            echo Warning: failed to remove old build directory: "%%~fD"
+        )
+    )
+)
+exit /b 0
+
 :frontend_dir_failed
 echo Cannot enter frontend directory: "%FRONTEND_DIR%"
 goto :failed
@@ -158,5 +184,4 @@ echo.
 echo ===== Deploy failed =====
 echo The last error above is the current failure reason.
 echo.
-pause
 exit /b 1

@@ -190,6 +190,21 @@ public class BorrowController {
     }
 
     /**
+     * 读者提前归还
+     */
+    @PostMapping("/reader/return/{id}")
+    public Result<?> readerReturnBook(@PathVariable Long id) {
+        LoginUser user = getCurrentUser();
+        if (user == null) return Result.error(401, "未登录");
+        try {
+            BorrowRecord record = borrowService.returnBookForReader(id, user.getUserId());
+            return Result.success(record);
+        } catch (Exception e) {
+            return Result.error(e.getMessage());
+        }
+    }
+
+    /**
      * 读者查看自己的借阅记录
      */
     @GetMapping("/reader/borrow-records")

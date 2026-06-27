@@ -44,6 +44,9 @@ jwt:
   secret: Y2xpZW50LWxpYnJhcnktbWFuYWdlbWVudC1zZWNyZXQta2V5LTIwMjQtc3ByaW5nLWJvb3Q
   expiration: 86400000
 
+library:
+  upload-dir: uploads
+
 logging:
   level:
     com.library: debug

@@ -80,32 +80,61 @@
       <el-empty v-if="!copyLoading && availableCopies.length === 0" description="暂无可借副本" />
     </el-card>
 
-    <!-- 借阅历史 -->
-    <el-card class="history-card" v-if="book">
-      <template #header><span>借阅记录</span></template>
-      <el-table :data="book.borrowRecords || []" stripe border>
-        <el-table-column prop="readerName" label="借阅人" width="120" />
-        <el-table-column prop="borrowDate" label="借阅日期" width="170" />
-        <el-table-column prop="dueDate" label="应还日期" width="170" />
-        <el-table-column prop="returnDate" label="归还日期" width="170">
-          <template #default="{ row }">{{ row.returnDate || '未归还' }}</template>
-        </el-table-column>
-        <el-table-column prop="status" label="状态" width="100">
-          <template #default="{ row }">
-            <el-tag :type="borrowStatusType(row.status)">{{ borrowStatusLabel(row.status) }}</el-tag>
-          </template>
-        </el-table-column>
-      </el-table>
-      <el-empty v-if="!book.borrowRecords?.length" description="暂无借阅记录" />
+    <!-- 书评 -->
+    <el-card class="reviews-card" v-if="book">
+      <template #header><span>书评</span></template>
+
+      <el-form class="review-form" :model="reviewForm">
+        <el-form-item label="评分">
+          <el-rate v-model="reviewForm.rating" />
+        </el-form-item>
+        <el-form-item label="评论">
+          <el-input
+            v-model="reviewForm.content"
+            type="textarea"
+            :rows="3"
+            maxlength="500"
+            show-word-limit
+            placeholder="写下你对这本书的看法"
+          />
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" :loading="reviewSubmitting" @click="handleSubmitReview">
+            发布书评
+          </el-button>
+        </el-form-item>
+      </el-form>
+
+      <div class="review-list" v-loading="reviewLoading">
+        <div v-for="item in reviews" :key="item.id" class="review-item">
+          <div class="review-meta">
+            <span class="review-reader">{{ item.readerName || '读者' }}</span>
+            <el-rate :model-value="item.rating || 5" disabled size="small" />
+            <span class="review-time">{{ item.createTime }}</span>
+          </div>
+          <div class="review-content">{{ item.content }}</div>
+        </div>
+        <el-empty v-if="!reviewLoading && reviews.length === 0" description="暂无书评" />
+      </div>
+
+      <el-pagination
+        v-if="reviewPagination.total > reviewPagination.pageSize"
+        class="pagination"
+        v-model:current-page="reviewPagination.page"
+        v-model:page-size="reviewPagination.pageSize"
+        :total="reviewPagination.total"
+        layout="total, prev, pager, next"
+        @current-change="fetchReviews"
+      />
     </el-card>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { reactive, ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getAvailableCopies, getBook } from '../../api/modules/book'
+import { addBookReview, getAvailableCopies, getBook, getBookReviews } from '../../api/modules/book'
 import { readerBorrowBook, reserveBook } from '../../api/modules/borrow'
 
 const route = useRoute()
@@ -115,16 +144,11 @@ const borrowing = ref(false)
 const reserving = ref(false)
 const book = ref(null)
 const availableCopies = ref([])
-
-const borrowStatusType = (status) => {
-  const map = { 1: 'warning', 2: 'success', 3: 'danger', 4: 'info' }
-  return map[status] || 'info'
-}
-
-const borrowStatusLabel = (status) => {
-  const map = { 1: '借阅中', 2: '已归还', 3: '已逾期', 4: '丢失' }
-  return map[status] || '未知'
-}
+const reviewLoading = ref(false)
+const reviewSubmitting = ref(false)
+const reviews = ref([])
+const reviewPagination = reactive({ page: 1, pageSize: 10, total: 0 })
+const reviewForm = reactive({ rating: 5, content: '' })
 
 const fetchBook = async () => {
   loading.value = true
@@ -132,10 +156,50 @@ const fetchBook = async () => {
     const res = await getBook(route.params.id)
     book.value = res.data
     fetchAvailableCopies()
+    fetchReviews()
   } catch {
     // handled
   } finally {
     loading.value = false
+  }
+}
+
+const fetchReviews = async () => {
+  reviewLoading.value = true
+  try {
+    const res = await getBookReviews(route.params.id, {
+      page: reviewPagination.page,
+      size: reviewPagination.pageSize
+    })
+    reviews.value = res.data.records || res.data.list || res.data || []
+    reviewPagination.total = res.data.total || 0
+  } catch {
+    reviews.value = []
+  } finally {
+    reviewLoading.value = false
+  }
+}
+
+const handleSubmitReview = async () => {
+  if (!reviewForm.content.trim()) {
+    ElMessage.warning('请输入评论内容')
+    return
+  }
+  reviewSubmitting.value = true
+  try {
+    await addBookReview(route.params.id, {
+      rating: reviewForm.rating,
+      content: reviewForm.content.trim()
+    })
+    ElMessage.success('书评发布成功')
+    reviewForm.rating = 5
+    reviewForm.content = ''
+    reviewPagination.page = 1
+    fetchReviews()
+  } catch {
+    // handled
+  } finally {
+    reviewSubmitting.value = false
   }
 }
 
@@ -236,10 +300,47 @@ onMounted(() => {
 .action-bar {
   margin-top: 24px;
 }
-.history-card {
+.reviews-card {
   margin-top: 20px;
 }
 .copies-card {
   margin-top: 20px;
+}
+.review-form {
+  max-width: 760px;
+  margin-bottom: 18px;
+}
+.review-list {
+  min-height: 80px;
+}
+.review-item {
+  padding: 16px 0;
+  border-top: 1px solid #ebeef5;
+}
+.review-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+.review-reader {
+  font-weight: 600;
+  color: #303133;
+}
+.review-time {
+  color: #909399;
+  font-size: 13px;
+}
+.review-content {
+  color: #303133;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.pagination {
+  margin-top: 16px;
+  display: flex;
+  justify-content: flex-end;
 }
 </style>

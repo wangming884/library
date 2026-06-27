@@ -17,10 +17,15 @@ public interface BorrowService extends IService<BorrowRecord> {
      */
     BorrowRecord borrowAvailableCopy(Long readerId, Long bookId, Long operatorId);
 
-     /**
+    /**
      * 还书
      */
     BorrowRecord returnBook(Long borrowRecordId, Long operatorId);
+
+    /**
+     * 读者提前归还自己的借阅记录
+     */
+    BorrowRecord returnBookForReader(Long borrowRecordId, Long readerId);
 
     /**
      * 续借

@@ -7,10 +7,12 @@ import com.library.entity.BookCopy;
 import com.library.entity.BookTag;
 import com.library.entity.Category;
 import com.library.service.BookService;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import javax.servlet.http.HttpServletRequest;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -29,9 +31,12 @@ import java.util.UUID;
 public class BookController {
 
     private final BookService bookService;
+    private final String uploadDir;
 
-    public BookController(BookService bookService) {
+    public BookController(BookService bookService,
+                          @Value("${library.upload-dir:uploads}") String uploadDir) {
         this.bookService = bookService;
+        this.uploadDir = uploadDir;
     }
 
     // ==================== 图书检索（公开） ====================
@@ -111,7 +116,7 @@ public class BookController {
 
     @PostMapping("/admin/books/cover")
     @PreAuthorize("hasAnyRole('super_admin','cataloger')")
-    public Result<?> uploadCover(@RequestParam("file") MultipartFile file) {
+    public Result<?> uploadCover(@RequestParam("file") MultipartFile file, HttpServletRequest request) {
         try {
             if (file == null || file.isEmpty()) {
                 return Result.error("请选择图片文件");
@@ -139,16 +144,18 @@ public class BookController {
                 return Result.error("仅支持 jpg、jpeg、png、gif、webp 格式");
             }
 
-            Path uploadDir = Paths.get("uploads", "covers").toAbsolutePath().normalize();
-            Files.createDirectories(uploadDir);
+            Path coverDir = Paths.get(uploadDir, "covers").toAbsolutePath().normalize();
+            Files.createDirectories(coverDir);
             String filename = UUID.randomUUID().toString().replace("-", "") + "." + ext;
-            Path target = uploadDir.resolve(filename).normalize();
-            if (!target.startsWith(uploadDir)) {
+            Path target = coverDir.resolve(filename).normalize();
+            if (!target.startsWith(coverDir)) {
                 return Result.error("文件路径不合法");
             }
             file.transferTo(target);
 
-            return Result.success(Map.of("url", "/library/uploads/covers/" + filename));
+            String contextPath = request.getContextPath();
+            String url = (StringUtils.hasText(contextPath) ? contextPath : "") + "/uploads/covers/" + filename;
+            return Result.success(Map.of("url", url));
         } catch (IOException e) {
             return Result.error("封面上传失败: " + e.getMessage());
         }

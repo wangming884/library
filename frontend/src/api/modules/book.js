@@ -6,6 +6,9 @@ export const searchBooks = (params) => request.get('/book/search', { params })
 export const getBook = (id) => request.get(`/book/${id}`)
 // 可借副本
 export const getAvailableCopies = (id) => request.get(`/book/${id}/available-copies`)
+// 图书书评
+export const getBookReviews = (id, params) => request.get(`/book/${id}/reviews`, { params })
+export const addBookReview = (id, data) => request.post(`/reader/book/${id}/reviews`, data)
 // 借阅排行
 export const getBorrowRank = (limit = 10) => request.get('/book/rank', { params: { limit } })
 // 新书推荐

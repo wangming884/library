@@ -62,6 +62,7 @@ CREATE TABLE IF NOT EXISTS sys_log (
 DROP TABLE IF EXISTS fine_record;
 DROP TABLE IF EXISTS reservation;
 DROP TABLE IF EXISTS borrow_record;
+DROP TABLE IF EXISTS book_review;
 DROP TABLE IF EXISTS feedback;
 DROP TABLE IF EXISTS seat_reservation;
 DROP TABLE IF EXISTS reader;
@@ -209,6 +210,19 @@ CREATE TABLE IF NOT EXISTS reservation (
     FOREIGN KEY (book_id) REFERENCES book(id)
 ) ENGINE=InnoDB COMMENT='预约记录表';
 
+CREATE TABLE IF NOT EXISTS book_review (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    book_id BIGINT NOT NULL COMMENT '图书ID',
+    reader_id BIGINT NOT NULL COMMENT '读者ID',
+    rating TINYINT DEFAULT 5 COMMENT '评分 1-5',
+    content VARCHAR(500) NOT NULL COMMENT '评论内容',
+    status TINYINT DEFAULT 1 COMMENT '状态 1显示 0隐藏',
+    create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+    update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (book_id) REFERENCES book(id),
+    FOREIGN KEY (reader_id) REFERENCES reader(id)
+) ENGINE=InnoDB COMMENT='图书书评表';
+
 -- ------------------------------------------
 -- 5. 罚款财务表
 -- ------------------------------------------
@@ -313,6 +327,8 @@ CREATE INDEX idx_borrow_reader ON borrow_record(reader_id);
 CREATE INDEX idx_borrow_status ON borrow_record(status);
 CREATE INDEX idx_borrow_due_date ON borrow_record(due_date);
 CREATE INDEX idx_reservation_reader ON reservation(reader_id);
+CREATE INDEX idx_book_review_book ON book_review(book_id);
+CREATE INDEX idx_book_review_reader ON book_review(reader_id);
 CREATE INDEX idx_fine_reader ON fine_record(reader_id);
 CREATE INDEX idx_fine_status ON fine_record(status);
 CREATE INDEX idx_sys_log_time ON sys_log(create_time);

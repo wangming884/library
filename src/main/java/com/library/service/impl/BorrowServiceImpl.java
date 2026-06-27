@@ -230,6 +230,20 @@ public class BorrowServiceImpl extends ServiceImpl<BorrowRecordMapper, BorrowRec
 
     @Override
     @Transactional
+    public BorrowRecord returnBookForReader(Long borrowRecordId, Long readerId) {
+        if (readerId == null) {
+            throw new RuntimeException("未登录");
+        }
+        BorrowRecord record = borrowRecordMapper.selectById(borrowRecordId);
+        if (record == null) throw new RuntimeException("借阅记录不存在");
+        if (!readerId.equals(record.getReaderId())) {
+            throw new RuntimeException("只能归还自己的借阅记录");
+        }
+        return returnBook(borrowRecordId, null);
+    }
+
+    @Override
+    @Transactional
     public String renew(Long borrowRecordId, Long operatorId) {
         BorrowRecord record = borrowRecordMapper.selectById(borrowRecordId);
         if (record == null) throw new RuntimeException("借阅记录不存在");
