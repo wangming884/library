@@ -1,12 +1,16 @@
 package com.library.service.impl;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.library.entity.Reader;
 import com.library.mapper.ReaderMapper;
+import com.library.mapper.ReaderTypeMapper;
 import com.library.security.JwtTokenProvider;
 import com.library.service.ReaderAuthService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
+import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -14,12 +18,14 @@ import java.util.Map;
 public class ReaderAuthServiceImpl implements ReaderAuthService {
 
     private final ReaderMapper readerMapper;
+    private final ReaderTypeMapper readerTypeMapper;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
 
-    public ReaderAuthServiceImpl(ReaderMapper readerMapper, PasswordEncoder passwordEncoder,
+    public ReaderAuthServiceImpl(ReaderMapper readerMapper, ReaderTypeMapper readerTypeMapper, PasswordEncoder passwordEncoder,
                                   JwtTokenProvider jwtTokenProvider) {
         this.readerMapper = readerMapper;
+        this.readerTypeMapper = readerTypeMapper;
         this.passwordEncoder = passwordEncoder;
         this.jwtTokenProvider = jwtTokenProvider;
     }
@@ -55,14 +61,53 @@ public class ReaderAuthServiceImpl implements ReaderAuthService {
 
     @Override
     public void register(Reader reader) {
-        // 检查证件号是否已注册
-        Reader existing = readerMapper.findByCardNo(reader.getCardNo());
-        if (existing != null) {
+        prepareReader(reader);
+        if (readerMapper.selectCount(new LambdaQueryWrapper<Reader>().eq(Reader::getCardNo, reader.getCardNo())) > 0) {
             throw new RuntimeException("该读者证号已被注册");
+        }
+        if (StringUtils.hasText(reader.getPhone())
+                && readerMapper.selectCount(new LambdaQueryWrapper<Reader>().eq(Reader::getPhone, reader.getPhone())) > 0) {
+            throw new RuntimeException("手机号已被使用");
+        }
+        if (StringUtils.hasText(reader.getIdCard())
+                && readerMapper.selectCount(new LambdaQueryWrapper<Reader>().eq(Reader::getIdCard, reader.getIdCard())) > 0) {
+            throw new RuntimeException("证件号已被使用");
         }
         reader.setPassword(passwordEncoder.encode(reader.getPassword()));
         reader.setStatus(1);
-        reader.setBalance(java.math.BigDecimal.ZERO);
+        reader.setBalance(BigDecimal.ZERO);
         readerMapper.insert(reader);
+    }
+
+    private void prepareReader(Reader reader) {
+        if (!StringUtils.hasText(reader.getCardNo())) {
+            throw new RuntimeException("请输入读者证号");
+        }
+        if (!StringUtils.hasText(reader.getName())) {
+            throw new RuntimeException("请输入姓名");
+        }
+        if (!StringUtils.hasText(reader.getPassword())) {
+            throw new RuntimeException("请输入密码");
+        }
+        if (reader.getTypeId() == null) {
+            throw new RuntimeException("请选择读者类型");
+        }
+        if (readerTypeMapper.selectById(reader.getTypeId()) == null) {
+            throw new RuntimeException("读者类型不存在");
+        }
+        reader.setCardNo(reader.getCardNo().trim());
+        reader.setName(reader.getName().trim());
+        if (StringUtils.hasText(reader.getPhone())) {
+            reader.setPhone(reader.getPhone().trim());
+        }
+        if (StringUtils.hasText(reader.getEmail())) {
+            reader.setEmail(reader.getEmail().trim());
+        }
+        if (StringUtils.hasText(reader.getDept())) {
+            reader.setDept(reader.getDept().trim());
+        }
+        if (StringUtils.hasText(reader.getIdCard())) {
+            reader.setIdCard(reader.getIdCard().trim());
+        }
     }
 }

@@ -129,7 +129,7 @@ const fetchCopies = async () => {
   try {
     const res = await getCopies({
       page: pagination.page,
-      pageSize: pagination.pageSize,
+      size: pagination.pageSize,
       bookId: searchForm.bookId || undefined,
       status: searchForm.status || undefined
     })

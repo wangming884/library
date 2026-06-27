@@ -33,8 +33,9 @@ request.interceptors.response.use(
     if (error.response) {
       if (error.response.status === 401) {
         const userStore = useUserStore()
+        const loginPath = userStore.roleKey === 'reader' ? '/reader-login' : '/login'
         userStore.logout()
-        router.push('/login')
+        router.push(loginPath)
         ElMessage.error('登录已过期，请重新登录')
       } else if (error.response.status === 403) {
         ElMessage.error('权限不足')

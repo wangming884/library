@@ -39,5 +39,11 @@ public class BorrowRecord extends BaseEntity {
     @TableField(exist = false)
     private String copyBarcode;
     @TableField(exist = false)
+    private String copyLocation;
+    @TableField(exist = false)
+    private String copyFloor;
+    @TableField(exist = false)
+    private String copyShelf;
+    @TableField(exist = false)
     private String operatorName;
 }

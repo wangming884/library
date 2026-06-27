@@ -31,11 +31,14 @@
       <!-- 日志表格 -->
       <el-table :data="tableData" v-loading="loading" stripe border>
         <el-table-column prop="id" label="ID" width="80" />
-        <el-table-column prop="operator" label="操作人" width="120" />
+        <el-table-column prop="adminName" label="操作人" width="120">
+          <template #default="{ row }">{{ row.adminName || '-' }}</template>
+        </el-table-column>
         <el-table-column prop="operation" label="操作类型" width="150" />
-        <el-table-column prop="method" label="请求方法" width="100" />
-        <el-table-column prop="url" label="请求地址" min-width="200" show-overflow-tooltip />
+        <el-table-column prop="method" label="请求方法" min-width="180" show-overflow-tooltip />
+        <el-table-column prop="params" label="请求参数" min-width="220" show-overflow-tooltip />
         <el-table-column prop="ip" label="IP地址" width="140" />
+        <el-table-column prop="duration" label="耗时(ms)" width="100" />
         <el-table-column prop="status" label="状态" width="100">
           <template #default="{ row }">
             <el-tag :type="row.status === 1 ? 'success' : 'danger'">
@@ -84,7 +87,7 @@ const fetchData = async () => {
   try {
     const params = {
       page: pagination.page,
-      pageSize: pagination.pageSize,
+      size: pagination.pageSize,
       operator: filters.operator || undefined,
       operation: filters.operation || undefined,
       startDate: filters.dateRange?.[0] || undefined,

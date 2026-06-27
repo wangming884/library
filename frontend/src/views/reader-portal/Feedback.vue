@@ -8,10 +8,10 @@
           <el-form ref="formRef" :model="form" :rules="rules" label-width="70px">
             <el-form-item label="类型" prop="type">
               <el-select v-model="form.type" placeholder="请选择反馈类型" style="width: 100%;">
-                <el-option label="建议" value="建议" />
-                <el-option label="投诉" value="投诉" />
-                <el-option label="咨询" value="咨询" />
-                <el-option label="其他" value="其他" />
+                <el-option label="购书建议" :value="1" />
+                <el-option label="图书丢失" :value="2" />
+                <el-option label="投诉" :value="3" />
+                <el-option label="其他" :value="4" />
               </el-select>
             </el-form-item>
             <el-form-item label="标题" prop="title">
@@ -43,7 +43,7 @@
             <el-empty v-if="feedbackList.length === 0" description="暂无反馈记录" />
             <div v-for="item in feedbackList" :key="item.id" class="feedback-item">
               <div class="feedback-header">
-                <el-tag size="small" type="info">{{ item.type }}</el-tag>
+                <el-tag size="small" type="info">{{ feedbackTypeLabel(item.type) }}</el-tag>
                 <span class="feedback-title">{{ item.title }}</span>
                 <el-tag :type="item.status === 1 ? 'success' : 'warning'" size="small">
                   {{ item.status === 1 ? '已回复' : '未回复' }}
@@ -92,6 +92,11 @@ const form = reactive({
   content: ''
 })
 
+const feedbackTypeLabel = (type) => {
+  const map = { 1: '购书建议', 2: '图书丢失', 3: '投诉', 4: '其他' }
+  return map[type] || '其他'
+}
+
 const rules = {
   type: [{ required: true, message: '请选择反馈类型', trigger: 'change' }],
   title: [{ required: true, message: '请输入标题', trigger: 'blur' }],
@@ -137,7 +142,7 @@ const fetchFeedback = async () => {
   try {
     const res = await myFeedback({
       page: pagination.page,
-      pageSize: pagination.pageSize
+      size: pagination.pageSize
     })
     feedbackList.value = res.data.records || res.data.list || res.data
     pagination.total = res.data.total || 0

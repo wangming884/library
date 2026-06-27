@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -55,6 +56,7 @@ public class ReportServiceImpl implements ReportService {
         // 逾期数量
         stats.put("overdueCount", borrowRecordMapper.selectCount(
                 new LambdaQueryWrapper<BorrowRecord>().eq(BorrowRecord::getStatus, Constants.BORROW_STATUS_OVERDUE)));
+        stats.put("avgDays", averageBorrowDays());
 
         // 近7天每天借阅量
         List<Map<String, Object>> dailyTrend = new ArrayList<>();
@@ -124,16 +126,26 @@ public class ReportServiceImpl implements ReportService {
         // 逾期罚金总额
         BigDecimal totalOverdueFine = fineRecordMapper.selectList(
                 new LambdaQueryWrapper<FineRecord>().eq(FineRecord::getType, Constants.FINE_TYPE_OVERDUE))
-                .stream().map(FineRecord::getAmount).reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
+                .stream().map(this::safeAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
         stats.put("totalOverdueFine", totalOverdueFine);
+        stats.put("totalFine", totalOverdueFine);
 
         // 未缴逾期罚金
         BigDecimal unpaidOverdue = fineRecordMapper.selectList(
                 new LambdaQueryWrapper<FineRecord>()
                         .eq(FineRecord::getType, Constants.FINE_TYPE_OVERDUE)
                         .eq(FineRecord::getStatus, 0))
-                .stream().map(f -> f.getAmount().subtract(f.getPaidAmount())).reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
+                .stream().map(this::unpaidAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
         stats.put("unpaidOverdueFine", unpaidOverdue);
+
+        long currentOverdue = (long) stats.get("overdueCount");
+        long monthOverdue = borrowRecordMapper.selectCount(new LambdaQueryWrapper<BorrowRecord>()
+                .eq(BorrowRecord::getStatus, Constants.BORROW_STATUS_OVERDUE)
+                .ge(BorrowRecord::getDueDate, LocalDate.now().withDayOfMonth(1).atStartOfDay()));
+        long totalBorrows = borrowRecordMapper.selectCount(null);
+        stats.put("currentOverdue", currentOverdue);
+        stats.put("monthOverdue", monthOverdue);
+        stats.put("overdueRate", totalBorrows == 0 ? 0D : currentOverdue * 100D / totalBorrows);
 
         return stats;
     }
@@ -174,5 +186,38 @@ public class ReportServiceImpl implements ReportService {
             result.add(item);
         }
         return result;
+    }
+
+    private double averageBorrowDays() {
+        List<BorrowRecord> records = borrowRecordMapper.selectList(
+                new LambdaQueryWrapper<BorrowRecord>().isNotNull(BorrowRecord::getBorrowDate));
+        if (records.isEmpty()) {
+            return 0D;
+        }
+        long totalDays = 0;
+        int counted = 0;
+        for (BorrowRecord record : records) {
+            if (record.getBorrowDate() == null) {
+                continue;
+            }
+            java.time.LocalDateTime end = record.getReturnDate() != null ? record.getReturnDate() : java.time.LocalDateTime.now();
+            long days = ChronoUnit.DAYS.between(record.getBorrowDate(), end);
+            totalDays += Math.max(days, 1);
+            counted++;
+        }
+        return counted == 0 ? 0D : (double) totalDays / counted;
+    }
+
+    private BigDecimal safeAmount(FineRecord fine) {
+        return fine.getAmount() == null ? BigDecimal.ZERO : fine.getAmount();
+    }
+
+    private BigDecimal safePaidAmount(FineRecord fine) {
+        return fine.getPaidAmount() == null ? BigDecimal.ZERO : fine.getPaidAmount();
+    }
+
+    private BigDecimal unpaidAmount(FineRecord fine) {
+        BigDecimal unpaid = safeAmount(fine).subtract(safePaidAmount(fine));
+        return unpaid.compareTo(BigDecimal.ZERO) < 0 ? BigDecimal.ZERO : unpaid;
     }
 }

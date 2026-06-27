@@ -20,8 +20,10 @@ export const unfreezeReader = (id) => request.put(`/admin/readers/${id}/unfreeze
 export const addBlacklist = (id) => request.put(`/admin/readers/${id}/blacklist`)
 export const removeBlacklist = (id) => request.put(`/admin/readers/${id}/remove-blacklist`)
 // 读者类型
-export const getReaderTypes = () => request.get('/admin/reader-types')
+export const getReaderTypes = () => request.get('/reader-types')
+export const getAdminReaderTypes = () => request.get('/admin/reader-types')
 export const addReaderType = (data) => request.post('/admin/reader-types', data)
+export const updateReaderType = (id, data) => request.put(`/admin/reader-types/${id}`, data)
 // 读者注册
 export const register = (data) => request.post('/reader/register', data)
 // 读者个人中心

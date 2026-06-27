@@ -1,13 +1,13 @@
 <template>
   <div class="fine-container">
     <!-- 财务概览卡片 -->
-    <el-row :gutter="20" class="summary-cards">
+    <el-row v-if="canViewSummary" :gutter="20" class="summary-cards">
       <el-col :span="6">
         <el-card shadow="hover" class="summary-card">
           <div class="card-inner">
             <div class="card-info">
-              <div class="label">罚款总额</div>
-              <div class="value">{{ summary.totalAmount?.toFixed(2) || '0.00' }}</div>
+              <div class="label">累计收入</div>
+              <div class="value">{{ money(summary.totalIncome) }}</div>
             </div>
             <el-icon size="40" color="#409EFF"><Money /></el-icon>
           </div>
@@ -17,8 +17,8 @@
         <el-card shadow="hover" class="summary-card">
           <div class="card-inner">
             <div class="card-info">
-              <div class="label">已缴金额</div>
-              <div class="value paid">{{ summary.paidAmount?.toFixed(2) || '0.00' }}</div>
+              <div class="label">本月收入</div>
+              <div class="value paid">{{ money(summary.monthlyIncome) }}</div>
             </div>
             <el-icon size="40" color="#67C23A"><CircleCheck /></el-icon>
           </div>
@@ -29,7 +29,7 @@
           <div class="card-inner">
             <div class="card-info">
               <div class="label">未缴金额</div>
-              <div class="value unpaid">{{ summary.unpaidAmount?.toFixed(2) || '0.00' }}</div>
+              <div class="value unpaid">{{ money(summary.totalUnpaid) }}</div>
             </div>
             <el-icon size="40" color="#F56C6C"><WarningFilled /></el-icon>
           </div>
@@ -39,8 +39,8 @@
         <el-card shadow="hover" class="summary-card">
           <div class="card-inner">
             <div class="card-info">
-              <div class="label">罚款笔数</div>
-              <div class="value">{{ summary.totalCount || 0 }}</div>
+              <div class="label">今日收入</div>
+              <div class="value">{{ money(summary.dailyIncome) }}</div>
             </div>
             <el-icon size="40" color="#E6A23C"><DataLine /></el-icon>
           </div>
@@ -80,10 +80,10 @@
         <el-table-column prop="id" label="ID" width="80" />
         <el-table-column prop="readerId" label="读者ID" width="100" />
         <el-table-column prop="readerName" label="读者姓名" width="120" />
-        <el-table-column prop="bookName" label="图书名称" min-width="180" show-overflow-tooltip />
+        <el-table-column prop="bookTitle" label="图书名称" min-width="180" show-overflow-tooltip />
         <el-table-column prop="amount" label="罚款金额" width="110">
           <template #default="{ row }">
-            <span style="color: #F56C6C; font-weight: bold;">{{ row.amount?.toFixed(2) }} 元</span>
+            <span style="color: #F56C6C; font-weight: bold;">{{ money(row.amount) }} 元</span>
           </template>
         </el-table-column>
         <el-table-column prop="type" label="类型" width="100">
@@ -133,8 +133,8 @@
     <el-dialog v-model="payDialogVisible" title="罚款缴费" width="420px">
       <div class="pay-info">
         <p><strong>读者：</strong>{{ currentFine.readerName }}</p>
-        <p><strong>图书：</strong>{{ currentFine.bookName }}</p>
-        <p><strong>金额：</strong><span style="color: #F56C6C; font-weight: bold;">{{ currentFine.amount?.toFixed(2) }} 元</span></p>
+        <p><strong>图书：</strong>{{ currentFine.bookTitle }}</p>
+        <p><strong>金额：</strong><span style="color: #F56C6C; font-weight: bold;">{{ money(currentFine.amount) }} 元</span></p>
       </div>
       <el-form :model="payForm" label-width="80px">
         <el-form-item label="缴费方式" required>
@@ -157,6 +157,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { getFines, payFine, getFinancialSummary } from '../../../api/modules/fine'
+import { useUserStore } from '../../../stores/user'
 
 const loading = ref(false)
 const payLoading = ref(false)
@@ -164,6 +165,8 @@ const payDialogVisible = ref(false)
 const tableData = ref([])
 const summary = ref({})
 const currentFine = ref({})
+const userStore = useUserStore()
+const canViewSummary = ['super_admin', 'circulation'].includes(userStore.roleKey)
 
 const filters = reactive({
   readerId: '',
@@ -187,13 +190,17 @@ const typeTagMap = {
   3: { label: '丢失', type: 'info' }
 }
 
+const money = (value) => Number(value || 0).toFixed(2)
+
 const fetchData = async () => {
   loading.value = true
   try {
     const params = {
       page: pagination.page,
-      pageSize: pagination.pageSize,
-      ...filters
+      size: pagination.pageSize,
+      readerId: filters.readerId || undefined,
+      status: filters.status !== '' ? filters.status : undefined,
+      type: filters.type !== '' ? filters.type : undefined
     }
     const res = await getFines(params)
     tableData.value = res.data.records || res.data.list || res.data
@@ -206,6 +213,7 @@ const fetchData = async () => {
 }
 
 const fetchSummary = async () => {
+  if (!canViewSummary) return
   try {
     const res = await getFinancialSummary()
     summary.value = res.data || {}
@@ -235,7 +243,7 @@ const confirmPay = async () => {
     ElMessage.success('缴费成功')
     payDialogVisible.value = false
     fetchData()
-    fetchSummary()
+    if (canViewSummary) fetchSummary()
   } catch {
     // handled by interceptor
   } finally {
@@ -245,7 +253,7 @@ const confirmPay = async () => {
 
 onMounted(() => {
   fetchData()
-  fetchSummary()
+  if (canViewSummary) fetchSummary()
 })
 </script>
 

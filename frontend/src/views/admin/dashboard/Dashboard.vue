@@ -106,9 +106,12 @@ import * as echarts from 'echarts'
 import { getBorrowStats, getReaderStats, getCollectionStats, getOverdueStats } from '../../../api/modules/report'
 import { getAnnouncements } from '../../../api/modules/system'
 import { getBorrowRank } from '../../../api/modules/book'
+import { useUserStore } from '../../../stores/user'
 
 const chartRef = ref(null)
 let chartInstance = null
+const userStore = useUserStore()
+const canViewReports = () => userStore.roleKey && userStore.roleKey !== 'reader'
 
 const stats = reactive({
   todayBorrows: 0,
@@ -121,6 +124,7 @@ const rankList = ref([])
 const announcements = ref([])
 
 const fetchStats = async () => {
+  if (!canViewReports()) return
   try {
     const [borrowRes, readerRes, collectionRes, overdueRes] = await Promise.all([
       getBorrowStats(),
@@ -128,9 +132,9 @@ const fetchStats = async () => {
       getCollectionStats(),
       getOverdueStats()
     ])
-    stats.todayBorrows = borrowRes.data?.todayCount ?? 0
-    stats.totalReaders = readerRes.data?.total ?? 0
-    stats.totalBooks = collectionRes.data?.total ?? 0
+    stats.todayBorrows = borrowRes.data?.todayBorrows ?? borrowRes.data?.todayCount ?? 0
+    stats.totalReaders = readerRes.data?.totalReaders ?? readerRes.data?.total ?? 0
+    stats.totalBooks = collectionRes.data?.totalBooks ?? collectionRes.data?.total ?? 0
     stats.overdueCount = overdueRes.data?.overdueCount ?? 0
   } catch {
     // error handled by interceptor
@@ -160,8 +164,11 @@ const initChart = async () => {
   let dates = []
   let counts = []
   try {
+    if (!canViewReports()) {
+      throw new Error('report permission required')
+    }
     const res = await getBorrowStats({ type: 'trend' })
-    const trendData = res.data || []
+    const trendData = res.data?.dailyTrend || res.data?.trend || res.data || []
     dates = trendData.map(d => d.date)
     counts = trendData.map(d => d.count)
   } catch {

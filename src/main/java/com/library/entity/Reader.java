@@ -38,4 +38,6 @@ public class Reader extends BaseEntity {
     private Integer maxDays;
     @TableField(exist = false)
     private Integer renewTimes;
+    @TableField(exist = false)
+    private Integer canBorrowRare;
 }

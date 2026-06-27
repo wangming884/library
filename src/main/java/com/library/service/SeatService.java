@@ -18,7 +18,11 @@ public interface SeatService extends IService<Seat> {
 
     boolean checkIn(Long reservationId);
 
+    boolean checkInForReader(Long reservationId, Long readerId);
+
     boolean release(Long reservationId);
+
+    boolean releaseForReader(Long reservationId, Long readerId);
 
     PageResult<SeatReservation> listReservations(int page, int size, Long readerId, LocalDate date, Integer status);
 }

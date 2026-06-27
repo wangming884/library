@@ -27,6 +27,12 @@ public interface BookService extends IService<Book> {
      */
     Book getDetail(Long id);
 
+    boolean saveBook(Book book);
+
+    boolean updateBook(Book book);
+
+    boolean deleteBook(Long id);
+
     /**
      * 借阅排行榜
      */
@@ -39,6 +45,8 @@ public interface BookService extends IService<Book> {
 
     // ---- 副本管理 ----
     PageResult<BookCopy> listCopies(int page, int size, Long bookId, Integer status);
+
+    List<BookCopy> listAvailableCopies(Long bookId);
 
     boolean saveCopy(BookCopy copy);
 

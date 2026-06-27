@@ -23,7 +23,7 @@
 
     <!-- 操作栏 + 表格 -->
     <el-card shadow="never" style="margin-top: 16px">
-      <div style="margin-bottom: 16px; display: flex; gap: 8px">
+      <div v-if="canRunBatchActions" style="margin-bottom: 16px; display: flex; gap: 8px">
         <el-button type="warning" @click="handleCheckOverdue">检测逾期</el-button>
         <el-button type="success" @click="handleSendReminders">批量催还</el-button>
       </div>
@@ -32,6 +32,10 @@
         <el-table-column prop="id" label="ID" width="60" />
         <el-table-column prop="readerName" label="读者" width="100" show-overflow-tooltip />
         <el-table-column prop="bookTitle" label="图书" min-width="160" show-overflow-tooltip />
+        <el-table-column prop="copyBarcode" label="副本条码" width="130" show-overflow-tooltip />
+        <el-table-column label="副本位置" min-width="160" show-overflow-tooltip>
+          <template #default="{ row }">{{ copyLocationText(row) }}</template>
+        </el-table-column>
         <el-table-column prop="borrowDate" label="借出日期" width="110" />
         <el-table-column prop="dueDate" label="应还日期" width="110" />
         <el-table-column prop="returnDate" label="归还日期" width="110">
@@ -72,18 +76,26 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getBorrowRecords, renewBook, checkOverdue, sendReminders } from '../../../api/modules/borrow'
+import { useUserStore } from '../../../stores/user'
+
+const userStore = useUserStore()
+const canRunBatchActions = ['super_admin', 'circulation'].includes(userStore.roleKey)
 
 // ---------- 状态选项 ----------
 const statusOptions = [
   { value: 1, label: '借阅中' },
   { value: 2, label: '已归还' },
   { value: 3, label: '已逾期' },
-  { value: 4, label: '已续借' }
+  { value: 4, label: '丢失' }
 ]
 const statusLabel = (val) => statusOptions.find(s => s.value === val)?.label || '未知'
 const statusTagType = (val) => {
-  const map = { 1: 'primary', 2: 'success', 3: 'danger', 4: 'warning' }
+  const map = { 1: 'primary', 2: 'success', 3: 'danger', 4: 'info' }
   return map[val] || 'info'
+}
+
+const copyLocationText = (row) => {
+  return [row.copyLocation, row.copyFloor, row.copyShelf].filter(Boolean).join(' / ') || '-'
 }
 
 // ---------- 搜索 ----------
@@ -106,7 +118,7 @@ const fetchRecords = async () => {
   try {
     const res = await getBorrowRecords({
       page: pagination.page,
-      pageSize: pagination.pageSize,
+      size: pagination.pageSize,
       readerId: searchForm.readerId || undefined,
       status: searchForm.status || undefined,
       keyword: searchForm.keyword || undefined

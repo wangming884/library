@@ -10,6 +10,8 @@ import com.library.mapper.FineRecordMapper;
 import com.library.mapper.ReaderMapper;
 import com.library.service.FineService;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -30,34 +32,41 @@ public class FineServiceImpl extends ServiceImpl<FineRecordMapper, FineRecord> i
 
     @Override
     public PageResult<FineRecord> listPage(int page, int size, Long readerId, Integer status, Integer type) {
-        LambdaQueryWrapper<FineRecord> wrapper = new LambdaQueryWrapper<>();
-        if (readerId != null) wrapper.eq(FineRecord::getReaderId, readerId);
-        if (status != null) wrapper.eq(FineRecord::getStatus, status);
-        if (type != null) wrapper.eq(FineRecord::getType, type);
-        wrapper.orderByDesc(FineRecord::getCreateTime);
-
-        Page<FineRecord> result = fineRecordMapper.selectPage(new Page<>(page, size), wrapper);
+        Page<FineRecord> result = fineRecordMapper.selectFinePage(new Page<>(page, size), readerId, status, type);
         return new PageResult<>(result.getRecords(), result.getTotal(), page, size);
     }
 
     @Override
+    @Transactional
     public boolean payFine(Long fineId, String payMethod, Long operatorId) {
         FineRecord fine = fineRecordMapper.selectById(fineId);
         if (fine == null) throw new RuntimeException("罚款记录不存在");
         if (fine.getStatus() == 1) throw new RuntimeException("该罚款已缴纳");
+        if (!StringUtils.hasText(payMethod)) {
+            throw new RuntimeException("请选择缴费方式");
+        }
 
-        BigDecimal unpaid = fine.getAmount().subtract(fine.getPaidAmount());
-        fine.setPaidAmount(fine.getAmount());
+        BigDecimal amount = fine.getAmount() == null ? BigDecimal.ZERO : fine.getAmount();
+        BigDecimal paidAmount = fine.getPaidAmount() == null ? BigDecimal.ZERO : fine.getPaidAmount();
+        BigDecimal unpaid = amount.subtract(paidAmount);
+        if (unpaid.compareTo(BigDecimal.ZERO) <= 0) {
+            fine.setStatus(1);
+            fine.setPaidAmount(amount);
+            fineRecordMapper.updateById(fine);
+            return true;
+        }
+        fine.setPaidAmount(amount);
         fine.setStatus(1);
         fine.setPayTime(LocalDateTime.now());
-        fine.setPayMethod(payMethod);
+        fine.setPayMethod(payMethod.trim());
         fine.setOperatorId(operatorId);
         fineRecordMapper.updateById(fine);
 
         // 更新读者余额（减少欠费）
         Reader reader = readerMapper.selectById(fine.getReaderId());
         if (reader != null) {
-            reader.setBalance(reader.getBalance().add(unpaid));
+            BigDecimal balance = reader.getBalance() == null ? BigDecimal.ZERO : reader.getBalance();
+            reader.setBalance(balance.add(unpaid));
             readerMapper.updateById(reader);
         }
         return true;
@@ -79,13 +88,13 @@ public class FineServiceImpl extends ServiceImpl<FineRecordMapper, FineRecord> i
         // 总罚款金额
         BigDecimal totalFines = fineRecordMapper.selectList(
                 new LambdaQueryWrapper<FineRecord>().eq(FineRecord::getStatus, 1))
-                .stream().map(FineRecord::getPaidAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+                .stream().map(this::safePaidAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
         summary.put("totalIncome", totalFines);
 
         // 未缴总额
         BigDecimal totalUnpaid = fineRecordMapper.selectList(
                 new LambdaQueryWrapper<FineRecord>().eq(FineRecord::getStatus, 0))
-                .stream().map(f -> f.getAmount().subtract(f.getPaidAmount())).reduce(BigDecimal.ZERO, BigDecimal::add);
+                .stream().map(this::unpaidAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
         summary.put("totalUnpaid", totalUnpaid);
 
         return summary;
@@ -100,7 +109,9 @@ public class FineServiceImpl extends ServiceImpl<FineRecordMapper, FineRecord> i
                 new LambdaQueryWrapper<FineRecord>().eq(FineRecord::getStatus, 0));
         Map<Long, BigDecimal> readerDebts = new HashMap<>();
         for (FineRecord f : unpaidFines) {
-            readerDebts.merge(f.getReaderId(), f.getAmount().subtract(f.getPaidAmount()), BigDecimal::add);
+            if (f.getReaderId() != null) {
+                readerDebts.merge(f.getReaderId(), unpaidAmount(f), BigDecimal::add);
+            }
         }
 
         List<Map<String, Object>> debtList = new java.util.ArrayList<>();
@@ -124,5 +135,18 @@ public class FineServiceImpl extends ServiceImpl<FineRecordMapper, FineRecord> i
         List<Map<String, Object>> subList = fromIndex < total ? debtList.subList(fromIndex, toIndex) : List.of();
 
         return new PageResult<>(subList, total, page, size);
+    }
+
+    private BigDecimal safeAmount(FineRecord fine) {
+        return fine.getAmount() == null ? BigDecimal.ZERO : fine.getAmount();
+    }
+
+    private BigDecimal safePaidAmount(FineRecord fine) {
+        return fine.getPaidAmount() == null ? BigDecimal.ZERO : fine.getPaidAmount();
+    }
+
+    private BigDecimal unpaidAmount(FineRecord fine) {
+        BigDecimal unpaid = safeAmount(fine).subtract(safePaidAmount(fine));
+        return unpaid.compareTo(BigDecimal.ZERO) < 0 ? BigDecimal.ZERO : unpaid;
     }
 }

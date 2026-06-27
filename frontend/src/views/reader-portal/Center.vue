@@ -4,7 +4,7 @@
       <!-- 我的借阅 -->
       <el-tab-pane label="我的借阅" name="borrow">
         <el-table :data="borrowRecords" v-loading="borrowLoading" stripe border>
-          <el-table-column prop="bookName" label="图书名称" min-width="180" show-overflow-tooltip />
+          <el-table-column prop="bookTitle" label="图书名称" min-width="180" show-overflow-tooltip />
           <el-table-column prop="borrowDate" label="借阅日期" width="170" />
           <el-table-column prop="dueDate" label="应还日期" width="170" />
           <el-table-column prop="returnDate" label="归还日期" width="170">
@@ -18,7 +18,7 @@
           <el-table-column label="操作" width="120" fixed="right">
             <template #default="{ row }">
               <el-button
-                v-if="row.status === 0"
+                v-if="row.status === 1"
                 size="small"
                 type="primary"
                 :loading="row._renewing"
@@ -45,20 +45,20 @@
       <!-- 我的预约 -->
       <el-tab-pane label="我的预约" name="reservation">
         <el-table :data="reservations" v-loading="reservationLoading" stripe border>
-          <el-table-column prop="bookName" label="图书名称" min-width="200" show-overflow-tooltip />
-          <el-table-column prop="createTime" label="预约时间" width="170" />
-          <el-table-column prop="expireTime" label="过期时间" width="170" />
+          <el-table-column prop="bookTitle" label="图书名称" min-width="200" show-overflow-tooltip />
+          <el-table-column prop="reserveDate" label="预约时间" width="170" />
+          <el-table-column prop="expireDate" label="过期时间" width="170" />
           <el-table-column prop="status" label="状态" width="100">
             <template #default="{ row }">
-              <el-tag :type="row.status === 0 ? 'warning' : row.status === 1 ? 'success' : 'info'">
-                {{ row.status === 0 ? '等待中' : row.status === 1 ? '已到书' : '已取消' }}
+              <el-tag :type="reservationStatusType(row.status)">
+                {{ reservationStatusLabel(row.status) }}
               </el-tag>
             </template>
           </el-table-column>
           <el-table-column label="操作" width="120" fixed="right">
             <template #default="{ row }">
               <el-button
-                v-if="row.status === 0"
+                v-if="row.status === 1"
                 size="small"
                 type="danger"
                 @click="handleCancelReservation(row)"
@@ -84,10 +84,10 @@
       <!-- 我的罚款 -->
       <el-tab-pane label="我的罚款" name="fine">
         <el-table :data="fines" v-loading="fineLoading" stripe border>
-          <el-table-column prop="bookName" label="图书名称" min-width="180" show-overflow-tooltip />
+          <el-table-column prop="bookTitle" label="图书名称" min-width="180" show-overflow-tooltip />
           <el-table-column prop="amount" label="罚款金额" width="120">
             <template #default="{ row }">
-              <span style="color: #F56C6C; font-weight: bold;">{{ row.amount?.toFixed(2) }} 元</span>
+              <span style="color: #F56C6C; font-weight: bold;">{{ money(row.amount) }} 元</span>
             </template>
           </el-table-column>
           <el-table-column prop="type" label="类型" width="100">
@@ -106,7 +106,7 @@
         </el-table>
         <div class="unpaid-summary" v-if="unpaidAmount > 0">
           <el-alert
-            :title="`您有未缴罚款共计 ${unpaidAmount.toFixed(2)} 元，请前往图书馆缴纳`"
+            :title="`您有未缴罚款共计 ${money(unpaidAmount)} 元，请前往图书馆缴纳`"
             type="warning"
             show-icon
             :closable="false"
@@ -195,15 +195,15 @@ const borrowLoading = ref(false)
 const borrowRecords = ref([])
 const borrowPagination = reactive({ page: 1, pageSize: 10, total: 0 })
 
-const borrowStatusType = (s) => ({ 0: 'warning', 1: 'success', 2: 'danger' }[s] || 'info')
-const borrowStatusLabel = (s) => ({ 0: '借阅中', 1: '已归还', 2: '已逾期' }[s] || '未知')
+const borrowStatusType = (s) => ({ 1: 'warning', 2: 'success', 3: 'danger', 4: 'info' }[s] || 'info')
+const borrowStatusLabel = (s) => ({ 1: '借阅中', 2: '已归还', 3: '已逾期', 4: '丢失' }[s] || '未知')
 
 const fetchBorrowRecords = async () => {
   borrowLoading.value = true
   try {
     const res = await myBorrowRecords({
       page: borrowPagination.page,
-      pageSize: borrowPagination.pageSize
+      size: borrowPagination.pageSize
     })
     borrowRecords.value = res.data.records || res.data.list || res.data
     borrowPagination.total = res.data.total || 0
@@ -232,13 +232,15 @@ const handleRenew = async (row) => {
 const reservationLoading = ref(false)
 const reservations = ref([])
 const reservationPagination = reactive({ page: 1, pageSize: 10, total: 0 })
+const reservationStatusType = (s) => ({ 1: 'warning', 2: 'success', 3: 'info', 4: 'success', 5: 'danger' }[s] || 'info')
+const reservationStatusLabel = (s) => ({ 1: '等待中', 2: '已到书', 3: '已取消', 4: '已完成', 5: '已过期' }[s] || '未知')
 
 const fetchReservations = async () => {
   reservationLoading.value = true
   try {
     const res = await myReservations({
       page: reservationPagination.page,
-      pageSize: reservationPagination.pageSize
+      size: reservationPagination.pageSize
     })
     reservations.value = res.data.records || res.data.list || res.data
     reservationPagination.total = res.data.total || 0
@@ -272,12 +274,14 @@ const fineTypeMap = {
   3: { label: '丢失', type: 'info' }
 }
 
+const money = (value) => Number(value || 0).toFixed(2)
+
 const fetchFines = async () => {
   fineLoading.value = true
   try {
     const [finesRes, unpaidRes] = await Promise.all([myFines(), myUnpaidAmount()])
     fines.value = finesRes.data.records || finesRes.data.list || finesRes.data
-    unpaidAmount.value = unpaidRes.data?.amount || unpaidRes.data || 0
+    unpaidAmount.value = Number(unpaidRes.data?.unpaidAmount || unpaidRes.data || 0)
   } catch {
     // handled
   } finally {
@@ -316,7 +320,7 @@ const fetchProfile = async () => {
       gender: data.gender || 1,
       email: data.email || '',
       phone: data.phone || '',
-      department: data.department || '',
+      department: data.dept || '',
       typeName: data.typeName || ''
     })
   } catch {

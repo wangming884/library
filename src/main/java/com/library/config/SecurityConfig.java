@@ -44,10 +44,10 @@ public class SecurityConfig {
                 // 公开接口
                 .antMatchers("/api/auth/login", "/api/auth/reader-login").permitAll()
                 .antMatchers("/api/reader/register").permitAll()
-                .antMatchers(HttpMethod.GET, "/api/book/search", "/api/book/{id}", "/api/announcements/**", "/api/book/rank", "/api/book/new", "/api/categories", "/api/seat/available", "/api/admin/reader-types").permitAll()
+                .antMatchers(HttpMethod.GET, "/api/book/search", "/api/book/*", "/api/book/*/available-copies", "/api/announcements/**", "/api/book/rank", "/api/book/new", "/api/categories", "/api/seat/available", "/api/reader-types").permitAll()
                 .antMatchers("/api/seat/available").permitAll()
                 // 静态资源
-                .antMatchers("/", "/*.html", "/*.js", "/*.css", "/assets/**", "/favicon.ico").permitAll()
+                .antMatchers("/", "/*.html", "/*.js", "/*.css", "/assets/**", "/uploads/**", "/favicon.ico").permitAll()
                 // 管理员接口
                 .antMatchers("/api/admin/**").hasAnyRole("super_admin", "cataloger", "circulation", "front_desk")
                 // 其他需要认证

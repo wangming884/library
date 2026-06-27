@@ -8,6 +8,7 @@ import com.library.security.JwtTokenProvider;
 import com.library.service.SysAdminService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -31,6 +32,9 @@ public class SysAdminServiceImpl implements SysAdminService {
 
     @Override
     public Map<String, Object> login(String username, String password) {
+        if (!StringUtils.hasText(username) || !StringUtils.hasText(password)) {
+            throw new RuntimeException("用户名和密码不能为空");
+        }
         SysAdmin admin = adminMapper.findByUsername(username);
         if (admin == null) {
             throw new RuntimeException("用户名不存在");
@@ -68,6 +72,12 @@ public class SysAdminServiceImpl implements SysAdminService {
 
     @Override
     public boolean changePassword(Long id, String oldPassword, String newPassword) {
+        if (!StringUtils.hasText(oldPassword)) {
+            throw new RuntimeException("请输入原密码");
+        }
+        if (!StringUtils.hasText(newPassword)) {
+            throw new RuntimeException("请输入新密码");
+        }
         SysAdmin admin = adminMapper.selectById(id);
         if (admin == null) {
             throw new RuntimeException("用户不存在");
@@ -75,7 +85,7 @@ public class SysAdminServiceImpl implements SysAdminService {
         if (!passwordEncoder.matches(oldPassword, admin.getPassword())) {
             throw new RuntimeException("原密码错误");
         }
-        admin.setPassword(passwordEncoder.encode(newPassword));
+        admin.setPassword(passwordEncoder.encode(newPassword.trim()));
         return adminMapper.updateById(admin) > 0;
     }
 }

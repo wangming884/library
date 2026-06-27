@@ -31,7 +31,7 @@
         <el-carousel-item v-for="item in announcements" :key="item.id">
           <div class="announcement-item">
             <el-tag :type="announcementTagType(item.type)" size="small" style="margin-right: 8px;">
-              {{ item.type }}
+              {{ announcementTypeLabel(item.type) }}
             </el-tag>
             <span class="title">{{ item.title }}</span>
             <span class="time">{{ item.publishTime }}</span>
@@ -55,7 +55,7 @@
               <div class="book-card" @click="goBookDetail(book.id)">
                 <div class="book-cover">
                   <el-image
-                    :src="book.coverUrl"
+                    :src="book.cover"
                     fit="cover"
                     style="width: 120px; height: 160px; border-radius: 4px;"
                   >
@@ -118,8 +118,13 @@ const newBooks = ref([])
 const borrowRank = ref([])
 
 const announcementTagType = (type) => {
-  const map = { '通知': '', '活动': 'success', '闭馆': 'warning' }
+  const map = { 1: '', 2: 'success', 3: 'warning' }
   return map[type] || ''
+}
+
+const announcementTypeLabel = (type) => {
+  const map = { 1: '通知', 2: '活动', 3: '闭馆' }
+  return map[type] || '通知'
 }
 
 const handleSearch = () => {
@@ -134,7 +139,7 @@ const goBookDetail = (id) => {
 
 const fetchAnnouncements = async () => {
   try {
-    const res = await getAnnouncements({ pageSize: 10 })
+    const res = await getAnnouncements({ size: 10 })
     announcements.value = res.data.records || res.data.list || res.data || []
   } catch {
     // handled

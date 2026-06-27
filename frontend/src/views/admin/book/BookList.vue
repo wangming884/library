@@ -29,6 +29,19 @@
 
       <el-table :data="tableData" v-loading="loading" border stripe>
         <el-table-column prop="id" label="ID" width="60" />
+        <el-table-column prop="cover" label="封面" width="82" align="center">
+          <template #default="{ row }">
+            <el-image
+              v-if="row.cover"
+              :src="row.cover"
+              fit="cover"
+              class="cover-thumb"
+              :preview-src-list="[row.cover]"
+              preview-teleported
+            />
+            <span v-else class="no-cover">无</span>
+          </template>
+        </el-table-column>
         <el-table-column prop="isbn" label="ISBN" width="140" />
         <el-table-column prop="title" label="书名" min-width="160" show-overflow-tooltip />
         <el-table-column prop="author" label="作者" width="120" show-overflow-tooltip />
@@ -44,7 +57,7 @@
         <el-table-column label="操作" width="160" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" size="small" @click="handleEdit(row)">编辑</el-button>
-            <el-button link type="danger" size="small" @click="handleDelete(row)">删除</el-button>
+            <el-button v-if="isSuperAdmin" link type="danger" size="small" @click="handleDelete(row)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -90,6 +103,26 @@
         <el-form-item label="关键字" prop="keywords">
           <el-input v-model="form.keywords" placeholder="多个关键字用逗号分隔" />
         </el-form-item>
+        <el-form-item label="封面图片">
+          <div class="cover-upload">
+            <el-upload
+              :show-file-list="false"
+              :before-upload="beforeCoverUpload"
+              :http-request="handleCoverUpload"
+              accept="image/jpeg,image/png,image/gif,image/webp"
+            >
+              <el-image v-if="form.cover" :src="form.cover" fit="cover" class="cover-preview" />
+              <div v-else class="cover-uploader-placeholder">
+                <el-icon size="28"><Plus /></el-icon>
+                <span>选择本地图片</span>
+              </div>
+            </el-upload>
+            <div class="cover-actions">
+              <el-button v-if="form.cover" size="small" @click="form.cover = ''">移除封面</el-button>
+              <span class="cover-tip">支持 jpg、png、gif、webp，最大 5MB</span>
+            </div>
+          </div>
+        </el-form-item>
         <el-form-item label="珍稀图书">
           <el-switch v-model="form.isRare" :active-value="1" :inactive-value="0" />
         </el-form-item>
@@ -108,7 +141,11 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getBooks, addBook, updateBook, deleteBook, getCategories } from '../../../api/modules/book'
+import { getBooks, addBook, updateBook, deleteBook, getCategories, uploadBookCover } from '../../../api/modules/book'
+import { useUserStore } from '../../../stores/user'
+
+const userStore = useUserStore()
+const isSuperAdmin = userStore.roleKey === 'super_admin'
 
 // ---------- 搜索 ----------
 const searchForm = reactive({ keyword: '', categoryId: '', isbn: '' })
@@ -130,7 +167,7 @@ const fetchBooks = async () => {
   try {
     const res = await getBooks({
       page: pagination.page,
-      pageSize: pagination.pageSize,
+      size: pagination.pageSize,
       keyword: searchForm.keyword || undefined,
       categoryId: searchForm.categoryId || undefined,
       isbn: searchForm.isbn || undefined
@@ -162,7 +199,7 @@ const editingId = ref(null)
 
 const defaultForm = () => ({
   isbn: '', title: '', author: '', publisher: '', pubDate: '',
-  categoryId: '', price: 0, description: '', keywords: '', isRare: 0
+  categoryId: '', price: 0, description: '', keywords: '', cover: '', isRare: 0
 })
 const form = reactive(defaultForm())
 
@@ -193,9 +230,34 @@ const handleEdit = (row) => {
     publisher: row.publisher, pubDate: row.pubDate,
     categoryId: row.categoryId, price: row.price,
     description: row.description, keywords: row.keywords,
+    cover: row.cover || '',
     isRare: row.isRare || 0
   })
   dialogVisible.value = true
+}
+
+const beforeCoverUpload = (file) => {
+  const isImage = file.type.startsWith('image/')
+  const isLt5M = file.size / 1024 / 1024 < 5
+  if (!isImage) {
+    ElMessage.error('只能上传图片文件')
+    return false
+  }
+  if (!isLt5M) {
+    ElMessage.error('图片大小不能超过 5MB')
+    return false
+  }
+  return true
+}
+
+const handleCoverUpload = async ({ file }) => {
+  try {
+    const res = await uploadBookCover(file)
+    form.cover = res.data.url
+    ElMessage.success('封面上传成功')
+  } catch {
+    // handled by interceptor
+  }
 }
 
 const handleSubmit = async () => {
@@ -240,5 +302,51 @@ onMounted(() => {
 <style scoped>
 .search-card :deep(.el-form-item) {
   margin-bottom: 0;
+}
+.cover-thumb {
+  width: 46px;
+  height: 62px;
+  border-radius: 4px;
+  background: #f5f7fa;
+}
+.no-cover {
+  color: #909399;
+  font-size: 12px;
+}
+.cover-upload {
+  display: flex;
+  align-items: flex-end;
+  gap: 14px;
+}
+.cover-preview,
+.cover-uploader-placeholder {
+  width: 110px;
+  height: 148px;
+  border-radius: 6px;
+}
+.cover-uploader-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: #909399;
+  background: #f5f7fa;
+  border: 1px dashed #c0c4cc;
+  cursor: pointer;
+}
+.cover-uploader-placeholder:hover {
+  border-color: #409eff;
+  color: #409eff;
+}
+.cover-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-bottom: 4px;
+}
+.cover-tip {
+  color: #909399;
+  font-size: 12px;
 }
 </style>

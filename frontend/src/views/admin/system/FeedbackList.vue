@@ -21,7 +21,11 @@
       <el-table :data="tableData" v-loading="loading" stripe border>
         <el-table-column prop="id" label="ID" width="80" />
         <el-table-column prop="readerName" label="读者" width="120" />
-        <el-table-column prop="type" label="类型" width="100" />
+        <el-table-column prop="type" label="类型" width="100">
+          <template #default="{ row }">
+            {{ feedbackTypeLabel(row.type) }}
+          </template>
+        </el-table-column>
         <el-table-column prop="title" label="标题" min-width="180" show-overflow-tooltip />
         <el-table-column prop="content" label="内容" min-width="250" show-overflow-tooltip />
         <el-table-column prop="status" label="状态" width="100">
@@ -107,12 +111,17 @@ const replyRules = {
   reply: [{ required: true, message: '请输入回复内容', trigger: 'blur' }]
 }
 
+const feedbackTypeLabel = (type) => {
+  const map = { 1: '购书建议', 2: '图书丢失', 3: '投诉', 4: '其他' }
+  return map[type] || '其他'
+}
+
 const fetchData = async () => {
   loading.value = true
   try {
     const params = {
       page: pagination.page,
-      pageSize: pagination.pageSize,
+      size: pagination.pageSize,
       status: filters.status !== '' ? filters.status : undefined
     }
     const res = await getFeedbackList(params)

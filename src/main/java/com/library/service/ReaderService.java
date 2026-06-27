@@ -20,6 +20,11 @@ public interface ReaderService extends IService<Reader> {
     Reader getDetail(Long id);
 
     /**
+     * 更新读者资料
+     */
+    boolean updateReader(Reader reader);
+
+    /**
      * 通过证件号查找
      */
     Reader getByCardNo(String cardNo);

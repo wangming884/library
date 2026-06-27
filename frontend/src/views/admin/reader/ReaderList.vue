@@ -21,7 +21,7 @@
         </el-form-item>
         <el-form-item>
           <el-button type="primary" @click="loadData">搜索</el-button>
-          <el-button type="success" @click="showAdd">新增读者</el-button>
+          <el-button v-if="canManageReader" type="success" @click="showAdd">新增读者</el-button>
         </el-form-item>
       </el-form>
     </el-card>
@@ -47,13 +47,14 @@
         </el-table-column>
         <el-table-column label="操作" width="280" fixed="right">
           <template #default="{ row }">
-            <el-button size="small" @click="showEdit(row)">编辑</el-button>
-            <el-button v-if="row.status === 1" size="small" type="warning" @click="handleLoss(row)">挂失</el-button>
-            <el-button v-if="row.status === 2" size="small" type="success" @click="handleReissue(row)">补办</el-button>
-            <el-button v-if="row.status === 1" size="small" type="danger" @click="handleFreeze(row)">冻结</el-button>
-            <el-button v-if="row.status === 3" size="small" type="success" @click="handleUnfreeze(row)">解冻</el-button>
-            <el-button v-if="row.status !== 4" size="small" type="danger" plain @click="handleBlacklist(row)">拉黑</el-button>
-            <el-button v-if="row.status === 4" size="small" type="success" plain @click="handleRemoveBlacklist(row)">移出</el-button>
+            <el-button v-if="canManageReader" size="small" @click="showEdit(row)">编辑</el-button>
+            <el-button v-if="canManageReader && row.status === 1" size="small" type="warning" @click="handleLoss(row)">挂失</el-button>
+            <el-button v-if="canManageReader && row.status === 2" size="small" type="success" @click="handleReissue(row)">补办</el-button>
+            <el-button v-if="isSuperAdmin && row.status === 1" size="small" type="danger" @click="handleFreeze(row)">冻结</el-button>
+            <el-button v-if="isSuperAdmin && row.status === 3" size="small" type="success" @click="handleUnfreeze(row)">解冻</el-button>
+            <el-button v-if="isSuperAdmin && row.status !== 4" size="small" type="danger" plain @click="handleBlacklist(row)">拉黑</el-button>
+            <el-button v-if="isSuperAdmin && row.status === 4" size="small" type="success" plain @click="handleRemoveBlacklist(row)">移出</el-button>
+            <span v-if="!canManageReader && !isSuperAdmin" style="color: #909399;">仅查看</span>
           </template>
         </el-table-column>
       </el-table>
@@ -143,6 +144,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getReaders, addReader, updateReader, reportLoss, reissue, freezeReader, unfreezeReader, addBlacklist, removeBlacklist, getReaderTypes } from '../../../api/modules/reader'
+import { useUserStore } from '../../../stores/user'
 
 const loading = ref(false)
 const submitting = ref(false)
@@ -153,14 +155,25 @@ const dialogVisible = ref(false)
 const isEdit = ref(false)
 const formTitle = ref('新增读者')
 const formRef = ref(null)
+const userStore = useUserStore()
+const canManageReader = ['super_admin', 'circulation'].includes(userStore.roleKey)
+const isSuperAdmin = userStore.roleKey === 'super_admin'
 
 const query = reactive({ page: 1, size: 10, keyword: '', status: null, typeId: null })
 const form = reactive({ id: null, cardNo: '', name: '', password: '', typeId: null, gender: 1, phone: '', email: '', dept: '', idCard: '', remark: '' })
 
+const validatePassword = (rule, value, callback) => {
+  if (!isEdit.value && !value) {
+    callback(new Error('请输入密码'))
+    return
+  }
+  callback()
+}
+
 const rules = {
   cardNo: [{ required: true, message: '请输入证号', trigger: 'blur' }],
   name: [{ required: true, message: '请输入姓名', trigger: 'blur' }],
-  password: [{ required: true, message: '请输入密码', trigger: 'blur' }],
+  password: [{ validator: validatePassword, trigger: 'blur' }],
   typeId: [{ required: true, message: '请选择类型', trigger: 'change' }],
   phone: [{ pattern: /^1\d{10}$/, message: '手机号格式不正确', trigger: 'blur' }],
 }
@@ -171,9 +184,17 @@ const statusType = (s) => ({ 1: 'success', 2: 'warning', 3: 'info', 4: 'danger' 
 const loadData = async () => {
   loading.value = true
   try {
-    const res = await getReaders(query)
+    const res = await getReaders({
+      page: query.page,
+      size: query.size,
+      keyword: query.keyword || undefined,
+      status: query.status ?? undefined,
+      typeId: query.typeId ?? undefined
+    })
     tableData.value = res.data.records || []
     total.value = res.data.total || 0
+  } catch {
+    // handled
   } finally { loading.value = false }
 }
 
@@ -206,7 +227,8 @@ const handleSubmit = async () => {
   submitting.value = true
   try {
     if (isEdit.value) {
-      await updateReader(form.id, form)
+      const { password, ...payload } = form
+      await updateReader(form.id, payload)
       ElMessage.success('更新成功')
     } else {
       await addReader(form)
@@ -214,6 +236,8 @@ const handleSubmit = async () => {
     }
     dialogVisible.value = false
     loadData()
+  } catch {
+    // handled
   } finally { submitting.value = false }
 }
 

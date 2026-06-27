@@ -52,7 +52,7 @@
           <el-card class="book-card" shadow="hover" @click="goDetail(book.id)">
             <div class="book-cover">
               <el-image
-                :src="book.coverUrl"
+                :src="book.cover"
                 fit="cover"
                 style="width: 100%; height: 200px; border-radius: 4px;"
               >
@@ -70,10 +70,10 @@
               <div class="book-meta">
                 <span class="category">{{ book.categoryName }}</span>
                 <el-tag
-                  :type="book.available > 0 ? 'success' : 'danger'"
+                  :type="book.availableCount > 0 ? 'success' : 'danger'"
                   size="small"
                 >
-                  {{ book.available > 0 ? '可借' : '已借出' }}
+                  {{ book.availableCount > 0 ? `可借 ${book.availableCount}` : '暂无可借' }}
                 </el-tag>
               </div>
             </div>
@@ -130,7 +130,7 @@ const fetchBooks = async () => {
   try {
     const params = {
       page: pagination.page,
-      pageSize: pagination.pageSize,
+      size: pagination.pageSize,
       keyword: searchForm.keyword || undefined,
       categoryId: searchForm.categoryId || undefined,
       author: searchForm.author || undefined,

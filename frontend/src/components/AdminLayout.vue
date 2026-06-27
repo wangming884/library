@@ -18,36 +18,41 @@
           <el-icon><Odometer /></el-icon>
           <template #title>仪表盘</template>
         </el-menu-item>
-        <el-sub-menu index="reader-mgmt">
+        <el-sub-menu v-if="canAccess(['super_admin', 'circulation', 'front_desk'])" index="reader-mgmt">
           <template #title><el-icon><User /></el-icon><span>读者管理</span></template>
           <el-menu-item index="/admin/readers">读者列表</el-menu-item>
+          <el-menu-item v-if="canAccess(['super_admin'])" index="/admin/reader-types">读者类型</el-menu-item>
         </el-sub-menu>
-        <el-sub-menu index="book-mgmt">
+        <el-sub-menu v-if="canAccess(['super_admin', 'cataloger', 'circulation', 'front_desk'])" index="book-mgmt">
           <template #title><el-icon><Reading /></el-icon><span>图书管理</span></template>
-          <el-menu-item index="/admin/books">图书列表</el-menu-item>
-          <el-menu-item index="/admin/copies">副本管理</el-menu-item>
-          <el-menu-item index="/admin/categories">分类管理</el-menu-item>
+          <el-menu-item v-if="canAccess(['super_admin', 'cataloger'])" index="/admin/books">图书列表</el-menu-item>
+          <el-menu-item v-if="canAccess(['super_admin', 'cataloger', 'circulation', 'front_desk'])" index="/admin/copies">副本管理</el-menu-item>
+          <el-menu-item v-if="canAccess(['super_admin', 'cataloger'])" index="/admin/categories">分类管理</el-menu-item>
         </el-sub-menu>
-        <el-sub-menu index="borrow-mgmt">
+        <el-sub-menu v-if="canAccess(['super_admin', 'circulation', 'front_desk'])" index="borrow-mgmt">
           <template #title><el-icon><Document /></el-icon><span>借阅管理</span></template>
           <el-menu-item index="/admin/borrow">借还办理</el-menu-item>
           <el-menu-item index="/admin/borrow-records">借阅记录</el-menu-item>
           <el-menu-item index="/admin/reservations">预约管理</el-menu-item>
         </el-sub-menu>
-        <el-menu-item index="/admin/fines">
+        <el-menu-item v-if="canAccess(['super_admin', 'front_desk'])" index="/admin/seat-reservations">
+          <el-icon><OfficeBuilding /></el-icon>
+          <template #title>座位预约</template>
+        </el-menu-item>
+        <el-menu-item v-if="canAccess(['super_admin', 'circulation', 'front_desk'])" index="/admin/fines">
           <el-icon><Money /></el-icon>
           <template #title>罚款管理</template>
         </el-menu-item>
-        <el-menu-item index="/admin/reports">
+        <el-menu-item v-if="canAccess(['super_admin', 'circulation'])" index="/admin/reports">
           <el-icon><DataAnalysis /></el-icon>
           <template #title>统计报表</template>
         </el-menu-item>
-        <el-sub-menu index="system-mgmt">
+        <el-sub-menu v-if="canAccess(['super_admin', 'circulation', 'front_desk'])" index="system-mgmt">
           <template #title><el-icon><Setting /></el-icon><span>系统管理</span></template>
-          <el-menu-item index="/admin/config">系统设置</el-menu-item>
-          <el-menu-item index="/admin/announcements">公告管理</el-menu-item>
-          <el-menu-item index="/admin/feedback">留言反馈</el-menu-item>
-          <el-menu-item index="/admin/logs">操作日志</el-menu-item>
+          <el-menu-item v-if="canAccess(['super_admin'])" index="/admin/config">系统设置</el-menu-item>
+          <el-menu-item v-if="canAccess(['super_admin', 'circulation'])" index="/admin/announcements">公告管理</el-menu-item>
+          <el-menu-item v-if="canAccess(['super_admin', 'circulation', 'front_desk'])" index="/admin/feedback">留言反馈</el-menu-item>
+          <el-menu-item v-if="canAccess(['super_admin'])" index="/admin/logs">操作日志</el-menu-item>
         </el-sub-menu>
       </el-menu>
     </el-aside>
@@ -97,6 +102,8 @@ const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
 const isCollapse = ref(false)
+
+const canAccess = (roles) => roles.includes(userStore.roleKey)
 
 const handleLogout = () => {
   ElMessageBox.confirm('确定退出登录？', '提示', { type: 'warning' }).then(() => {

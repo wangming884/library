@@ -4,6 +4,8 @@ import com.baomidou.mybatisplus.extension.service.IService;
 import com.library.common.PageResult;
 import com.library.entity.SysLog;
 
+import java.time.LocalDate;
+
 public interface SysLogService extends IService<SysLog> {
 
     /**
@@ -15,4 +17,10 @@ public interface SysLogService extends IService<SysLog> {
      * 分页查询日志
      */
     PageResult<SysLog> listPage(int page, int size, String keyword, Integer status);
+
+    /**
+     * 分页查询日志（带细分筛选）
+     */
+    PageResult<SysLog> listPage(int page, int size, String keyword, Integer status,
+                                String operator, String operation, LocalDate startDate, LocalDate endDate);
 }

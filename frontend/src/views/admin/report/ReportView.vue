@@ -32,7 +32,7 @@
             <el-card shadow="hover">
               <div class="stat-item">
                 <div class="stat-label">平均借阅天数</div>
-                <div class="stat-value">{{ borrowStats.avgDays?.toFixed(1) || 0 }}</div>
+                <div class="stat-value">{{ number(borrowStats.avgDays, 1) }}</div>
               </div>
             </el-card>
           </el-col>
@@ -92,7 +92,7 @@
             <el-card shadow="hover">
               <div class="stat-item">
                 <div class="stat-label">逾期罚款总额</div>
-                <div class="stat-value">{{ overdueStats.totalFine?.toFixed(2) || '0.00' }}</div>
+                <div class="stat-value">{{ number(overdueStats.totalFine, 2) }}</div>
               </div>
             </el-card>
           </el-col>
@@ -100,7 +100,7 @@
             <el-card shadow="hover">
               <div class="stat-item">
                 <div class="stat-label">逾期率</div>
-                <div class="stat-value">{{ overdueStats.overdueRate?.toFixed(1) || 0 }}%</div>
+                <div class="stat-value">{{ number(overdueStats.overdueRate, 1) }}%</div>
               </div>
             </el-card>
           </el-col>
@@ -125,6 +125,8 @@ import {
 const activeTab = ref('borrow')
 const borrowStats = ref({})
 const overdueStats = ref({})
+
+const number = (value, digits = 0) => Number(value || 0).toFixed(digits)
 
 const borrowChartRef = ref(null)
 const readerPieRef = ref(null)
@@ -157,7 +159,7 @@ const fetchBorrowStats = async () => {
     const data = res.data || {}
     borrowStats.value = data.summary || data
     await nextTick()
-    renderBorrowChart(data.trend || data.daily || [])
+    renderBorrowChart(data.dailyTrend || data.trend || data.daily || [])
   } catch {
     // handled
   }
@@ -189,6 +191,7 @@ const renderReaderPie = async () => {
   try {
     const res = await getReaderStats()
     const data = res.data || []
+    const list = Array.isArray(data) ? data : data.typeStats || data.list || []
     if (readerPie) readerPie.dispose()
     readerPie = echarts.init(readerPieRef.value)
     readerPie.setOption({
@@ -198,7 +201,7 @@ const renderReaderPie = async () => {
         type: 'pie',
         radius: ['40%', '70%'],
         label: { formatter: '{b}: {c} ({d}%)' },
-        data: (Array.isArray(data) ? data : data.list || []).map(i => ({
+        data: list.map(i => ({
           name: i.typeName || i.name,
           value: i.count || i.value
         }))
@@ -223,7 +226,7 @@ const renderDeptChart = async () => {
         type: 'pie',
         radius: '65%',
         data: (Array.isArray(data) ? data : data.list || []).map(i => ({
-          name: i.deptName || i.name,
+          name: i.dept || i.deptName || i.name,
           value: i.count || i.value
         }))
       }]
@@ -251,7 +254,7 @@ const renderCategoryBar = async () => {
       yAxis: { type: 'value', name: '数量' },
       series: [{
         type: 'bar',
-        data: list.map(i => i.count || i.value),
+        data: list.map(i => i.bookCount || i.count || i.value),
         itemStyle: {
           color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
             { offset: 0, color: '#409EFF' },
@@ -270,7 +273,13 @@ const renderCategoryBar = async () => {
 const fetchOverdueStats = async () => {
   try {
     const res = await getOverdueStats()
-    overdueStats.value = res.data || {}
+    const data = res.data || {}
+    overdueStats.value = {
+      currentOverdue: data.currentOverdue ?? data.overdueCount ?? 0,
+      monthOverdue: data.monthOverdue ?? data.overdueCount ?? 0,
+      totalFine: data.totalFine ?? data.totalOverdueFine ?? 0,
+      overdueRate: data.overdueRate ?? 0
+    }
   } catch {
     // handled
   }

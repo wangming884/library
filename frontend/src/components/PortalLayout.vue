@@ -10,6 +10,7 @@
         <el-menu mode="horizontal" :default-active="route.path" router class="top-menu">
           <el-menu-item index="/portal/home">首页</el-menu-item>
           <el-menu-item index="/portal/search">图书检索</el-menu-item>
+          <el-menu-item index="/portal/seat">座位预约</el-menu-item>
           <el-menu-item index="/portal/center">个人中心</el-menu-item>
           <el-menu-item index="/portal/feedback">留言反馈</el-menu-item>
         </el-menu>

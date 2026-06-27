@@ -37,7 +37,9 @@ E:\Java课设\图书馆管理系统\src\main\java\com\library\controller\SysConfigControl
 E:\Java课设\图书馆管理系统\src\main\java\com\library\controller\SysLogController.java
 E:\Java课设\图书馆管理系统\src\main\java\com\library\entity\BookTag.java
 E:\Java课设\图书馆管理系统\src\main\java\com\library\common\Result.java
+E:\Java课设\图书馆管理系统\src\main\java\com\library\config\WebMvcConfig.java
 E:\Java课设\图书馆管理系统\src\main\java\com\library\controller\BorrowController.java
+E:\Java课设\图书馆管理系统\src\main\java\com\library\config\BookInventoryConsistencyRunner.java
 E:\Java课设\图书馆管理系统\src\main\java\com\library\service\impl\AnnouncementServiceImpl.java
 E:\Java课设\图书馆管理系统\src\main\java\com\library\controller\AnnouncementController.java
 E:\Java课设\图书馆管理系统\src\main\java\com\library\security\JwtTokenProvider.java
@@ -69,6 +71,7 @@ E:\Java课设\图书馆管理系统\src\main\java\com\library\mapper\BookCopyMapper.java
 E:\Java课设\图书馆管理系统\src\main\java\com\library\mapper\BorrowRecordMapper.java
 E:\Java课设\图书馆管理系统\src\main\java\com\library\security\UserDetailsServiceImpl.java
 E:\Java课设\图书馆管理系统\src\main\java\com\library\mapper\FeedbackMapper.java
+E:\Java课设\图书馆管理系统\src\main\java\com\library\config\OperationLogInterceptor.java
 E:\Java课设\图书馆管理系统\src\main\java\com\library\entity\Book.java
 E:\Java课设\图书馆管理系统\src\main\java\com\library\service\impl\SysAdminServiceImpl.java
 E:\Java课设\图书馆管理系统\src\main\java\com\library\mapper\SeatMapper.java

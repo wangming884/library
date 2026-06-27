@@ -37,10 +37,13 @@ public class BorrowController {
     public Result<?> borrow(@RequestBody Map<String, Long> params) {
         Long readerId = params.get("readerId");
         Long copyId = params.get("copyId");
+        Long bookId = params.get("bookId");
         LoginUser user = getCurrentUser();
         try {
-            String msg = borrowService.borrow(readerId, copyId, user != null ? user.getUserId() : null);
-            return Result.success(msg);
+            BorrowRecord record = copyId != null
+                    ? borrowService.borrow(readerId, copyId, user != null ? user.getUserId() : null)
+                    : borrowService.borrowAvailableCopy(readerId, bookId, user != null ? user.getUserId() : null);
+            return Result.success(record);
         } catch (Exception e) {
             return Result.error(e.getMessage());
         }
@@ -54,8 +57,8 @@ public class BorrowController {
     public Result<?> returnBook(@PathVariable Long id) {
         LoginUser user = getCurrentUser();
         try {
-            String msg = borrowService.returnBook(id, user != null ? user.getUserId() : null);
-            return Result.success(msg);
+            BorrowRecord record = borrowService.returnBook(id, user != null ? user.getUserId() : null);
+            return Result.success(record);
         } catch (Exception e) {
             return Result.error(e.getMessage());
         }
@@ -100,8 +103,9 @@ public class BorrowController {
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(required = false) Long readerId,
-            @RequestParam(required = false) Integer status) {
-        return Result.success(borrowService.listReservations(page, size, readerId, status));
+            @RequestParam(required = false) Integer status,
+            @RequestParam(required = false) String keyword) {
+        return Result.success(borrowService.listReservations(page, size, readerId, status, keyword));
     }
 
     /**
@@ -129,6 +133,21 @@ public class BorrowController {
     /**
      * 读者预约借阅
      */
+    @PostMapping("/reader/borrow")
+    public Result<?> readerBorrow(@RequestBody Map<String, Long> params) {
+        LoginUser user = getCurrentUser();
+        if (user == null) return Result.error(401, "未登录");
+        try {
+            BorrowRecord record = borrowService.borrowAvailableCopy(user.getUserId(), params.get("bookId"), null);
+            return Result.success(record);
+        } catch (Exception e) {
+            return Result.error(e.getMessage());
+        }
+    }
+
+    /**
+     * 读者预约借阅
+     */
     @PostMapping("/reader/reserve")
     public Result<?> reserve(@RequestBody Map<String, Long> params) {
         LoginUser user = getCurrentUser();
@@ -146,8 +165,10 @@ public class BorrowController {
      */
     @DeleteMapping("/reader/reservations/{id}")
     public Result<?> cancelReservation(@PathVariable Long id) {
+        LoginUser user = getCurrentUser();
+        if (user == null) return Result.error(401, "未登录");
         try {
-            return borrowService.cancelReservation(id) ? Result.success("取消成功") : Result.error("取消失败");
+            return borrowService.cancelReservationForReader(id, user.getUserId()) ? Result.success("取消成功") : Result.error("取消失败");
         } catch (Exception e) {
             return Result.error(e.getMessage());
         }
@@ -158,8 +179,10 @@ public class BorrowController {
      */
     @PostMapping("/reader/renew/{id}")
     public Result<?> readerRenew(@PathVariable Long id) {
+        LoginUser user = getCurrentUser();
+        if (user == null) return Result.error(401, "未登录");
         try {
-            String msg = borrowService.renew(id, null);
+            String msg = borrowService.renewForReader(id, user.getUserId());
             return Result.success(msg);
         } catch (Exception e) {
             return Result.error(e.getMessage());
@@ -189,7 +212,7 @@ public class BorrowController {
             @RequestParam(defaultValue = "10") int size) {
         LoginUser user = getCurrentUser();
         if (user == null) return Result.error(401, "未登录");
-        return Result.success(borrowService.listReservations(page, size, user.getUserId(), null));
+        return Result.success(borrowService.listReservations(page, size, user.getUserId(), null, null));
     }
 
     private LoginUser getCurrentUser() {

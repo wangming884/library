@@ -57,14 +57,15 @@ import { getReservations } from '../../../api/modules/borrow'
 
 // ---------- 状态选项 ----------
 const statusOptions = [
-  { value: 1, label: '待取书' },
-  { value: 2, label: '已取书' },
+  { value: 1, label: '等待' },
+  { value: 2, label: '就绪' },
   { value: 3, label: '已取消' },
-  { value: 4, label: '已过期' }
+  { value: 4, label: '已完成' },
+  { value: 5, label: '已过期' }
 ]
 const statusLabel = (val) => statusOptions.find(s => s.value === val)?.label || '未知'
 const statusTagType = (val) => {
-  const map = { 1: 'warning', 2: 'success', 3: 'info', 4: 'danger' }
+  const map = { 1: 'warning', 2: 'primary', 3: 'info', 4: 'success', 5: 'danger' }
   return map[val] || 'info'
 }
 
@@ -88,7 +89,7 @@ const fetchReservations = async () => {
   try {
     const res = await getReservations({
       page: pagination.page,
-      pageSize: pagination.pageSize,
+      size: pagination.pageSize,
       readerId: searchForm.readerId || undefined,
       status: searchForm.status || undefined,
       keyword: searchForm.keyword || undefined

@@ -56,7 +56,11 @@ public class AnnouncementController {
         if (user != null && announcement.getId() == null) {
             announcement.setAdminId(user.getUserId());
         }
-        return announcementService.publish(announcement) ? Result.success("发布成功") : Result.error("发布失败");
+        try {
+            return announcementService.publish(announcement) ? Result.success("发布成功") : Result.error("发布失败");
+        } catch (Exception e) {
+            return Result.error(e.getMessage());
+        }
     }
 
     /**
@@ -78,7 +82,7 @@ public class AnnouncementController {
     @DeleteMapping("/admin/announcements/{id}")
     @PreAuthorize("hasRole('super_admin')")
     public Result<?> deleteAnnouncement(@PathVariable Long id) {
-        return announcementService.removeById(id) ? Result.success("删除成功") : Result.error("删除失败");
+        return announcementService.removeAnnouncement(id) ? Result.success("删除成功") : Result.error("公告不存在或删除失败");
     }
 
     private LoginUser getCurrentUser() {

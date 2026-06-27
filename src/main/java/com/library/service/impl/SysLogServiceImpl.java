@@ -10,6 +10,8 @@ import com.library.service.SysLogService;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
+import java.time.LocalDate;
+
 @Service
 public class SysLogServiceImpl extends ServiceImpl<SysLogMapper, SysLog> implements SysLogService {
 
@@ -35,11 +37,32 @@ public class SysLogServiceImpl extends ServiceImpl<SysLogMapper, SysLog> impleme
 
     @Override
     public PageResult<SysLog> listPage(int page, int size, String keyword, Integer status) {
+        return listPage(page, size, keyword, status, null, null, null, null);
+    }
+
+    @Override
+    public PageResult<SysLog> listPage(int page, int size, String keyword, Integer status,
+                                       String operator, String operation, LocalDate startDate, LocalDate endDate) {
         LambdaQueryWrapper<SysLog> wrapper = new LambdaQueryWrapper<>();
         if (StringUtils.hasText(keyword)) {
-            wrapper.like(SysLog::getOperation, keyword).or().like(SysLog::getAdminName, keyword);
+            wrapper.and(w -> w.like(SysLog::getOperation, keyword)
+                    .or().like(SysLog::getAdminName, keyword)
+                    .or().like(SysLog::getMethod, keyword)
+                    .or().like(SysLog::getParams, keyword));
+        }
+        if (StringUtils.hasText(operator)) {
+            wrapper.like(SysLog::getAdminName, operator);
+        }
+        if (StringUtils.hasText(operation)) {
+            wrapper.like(SysLog::getOperation, operation);
         }
         if (status != null) wrapper.eq(SysLog::getStatus, status);
+        if (startDate != null) {
+            wrapper.ge(SysLog::getCreateTime, startDate.atStartOfDay());
+        }
+        if (endDate != null) {
+            wrapper.lt(SysLog::getCreateTime, endDate.plusDays(1).atStartOfDay());
+        }
         wrapper.orderByDesc(SysLog::getCreateTime);
 
         Page<SysLog> result = logMapper.selectPage(new Page<>(page, size), wrapper);

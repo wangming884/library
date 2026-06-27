@@ -26,7 +26,7 @@
           </template>
         </el-table-column>
         <el-table-column prop="publishTime" label="发布时间" width="170" />
-        <el-table-column prop="publisher" label="发布人" width="120" />
+        <el-table-column prop="adminName" label="发布人" width="120" />
         <el-table-column label="操作" width="240" fixed="right">
           <template #default="{ row }">
             <el-button size="small" @click="openDialog(row)">编辑</el-button>
@@ -37,7 +37,7 @@
             >
               {{ row.isTop ? '取消置顶' : '置顶' }}
             </el-button>
-            <el-button size="small" type="danger" @click="handleDelete(row)">删除</el-button>
+            <el-button v-if="isSuperAdmin" size="small" type="danger" @click="handleDelete(row)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -67,9 +67,9 @@
         </el-form-item>
         <el-form-item label="类型" prop="type">
           <el-select v-model="form.type" placeholder="请选择类型">
-            <el-option label="通知" value="通知" />
-            <el-option label="活动" value="活动" />
-            <el-option label="闭馆" value="闭馆" />
+            <el-option label="通知" :value="1" />
+            <el-option label="活动" :value="2" />
+            <el-option label="闭馆" :value="3" />
           </el-select>
         </el-form-item>
         <el-form-item label="内容" prop="content">
@@ -100,6 +100,7 @@ import {
   deleteAnnouncement,
   toggleTop
 } from '../../../api/modules/system'
+import { useUserStore } from '../../../stores/user'
 
 const loading = ref(false)
 const submitLoading = ref(false)
@@ -107,6 +108,8 @@ const dialogVisible = ref(false)
 const isEdit = ref(false)
 const formRef = ref(null)
 const tableData = ref([])
+const userStore = useUserStore()
+const isSuperAdmin = userStore.roleKey === 'super_admin'
 
 const pagination = reactive({
   page: 1,
@@ -117,7 +120,7 @@ const pagination = reactive({
 const form = reactive({
   id: null,
   title: '',
-  type: '通知',
+  type: 1,
   content: ''
 })
 
@@ -128,9 +131,9 @@ const rules = {
 }
 
 const typeTagMap = {
-  '通知': { label: '通知', type: 'primary' },
-  '活动': { label: '活动', type: 'success' },
-  '闭馆': { label: '闭馆', type: 'warning' }
+  1: { label: '通知', type: 'primary' },
+  2: { label: '活动', type: 'success' },
+  3: { label: '闭馆', type: 'warning' }
 }
 
 const fetchData = async () => {
@@ -138,7 +141,7 @@ const fetchData = async () => {
   try {
     const res = await getAnnouncements({
       page: pagination.page,
-      pageSize: pagination.pageSize
+      size: pagination.pageSize
     })
     tableData.value = res.data.records || res.data.list || res.data
     pagination.total = res.data.total || 0
@@ -160,7 +163,7 @@ const openDialog = (row) => {
     isEdit.value = false
     form.id = null
     form.title = ''
-    form.type = '通知'
+    form.type = 1
     form.content = ''
   }
   dialogVisible.value = true

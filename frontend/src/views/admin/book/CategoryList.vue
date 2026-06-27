@@ -8,14 +8,14 @@
       <el-table :data="treeData" v-loading="loading" border row-key="id"
         :tree-props="{ children: 'children', hasChildren: 'hasChildren' }" default-expand-all>
         <el-table-column prop="id" label="ID" width="80" />
+        <el-table-column prop="code" label="分类编码" width="120" />
         <el-table-column prop="name" label="分类名称" min-width="200" />
         <el-table-column prop="sort" label="排序" width="80" align="center" />
-        <el-table-column prop="description" label="描述" min-width="200" show-overflow-tooltip />
         <el-table-column label="操作" width="240" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" size="small" @click="handleAdd(row)">添加子分类</el-button>
             <el-button link type="primary" size="small" @click="handleEdit(row)">编辑</el-button>
-            <el-button link type="danger" size="small" @click="handleDelete(row)">删除</el-button>
+            <el-button v-if="isSuperAdmin" link type="danger" size="small" @click="handleDelete(row)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -24,6 +24,9 @@
     <!-- 新增/编辑弹窗 -->
     <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑分类' : '新增分类'" width="480px" destroy-on-close>
       <el-form ref="formRef" :model="form" :rules="rules" label-width="90px">
+        <el-form-item label="分类编码" prop="code">
+          <el-input v-model="form.code" placeholder="请输入分类编码，如 TP" />
+        </el-form-item>
         <el-form-item label="分类名称" prop="name">
           <el-input v-model="form.name" placeholder="请输入分类名称" />
         </el-form-item>
@@ -32,9 +35,6 @@
         </el-form-item>
         <el-form-item label="排序" prop="sort">
           <el-input-number v-model="form.sort" :min="0" :max="9999" style="width: 100%" />
-        </el-form-item>
-        <el-form-item label="描述" prop="description">
-          <el-input v-model="form.description" type="textarea" :rows="3" placeholder="请输入描述" />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -49,6 +49,10 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getCategories, addCategory, updateCategory, deleteCategory } from '../../../api/modules/book'
+import { useUserStore } from '../../../stores/user'
+
+const userStore = useUserStore()
+const isSuperAdmin = userStore.roleKey === 'super_admin'
 
 // ---------- 树形数据 ----------
 const loading = ref(false)
@@ -101,10 +105,11 @@ const parentName = computed(() => {
   return p ? p.name : ''
 })
 
-const defaultForm = () => ({ name: '', sort: 0, description: '' })
+const defaultForm = () => ({ code: '', name: '', sort: 0 })
 const form = reactive(defaultForm())
 
 const rules = {
+  code: [{ required: true, message: '请输入分类编码', trigger: 'blur' }],
   name: [{ required: true, message: '请输入分类名称', trigger: 'blur' }]
 }
 
@@ -117,7 +122,7 @@ const handleAdd = (parent) => {
 }
 
 const handleEdit = (row) => {
-  Object.assign(form, { name: row.name, sort: row.sort ?? 0, description: row.description || '' })
+  Object.assign(form, { code: row.code, name: row.name, sort: row.sort ?? 0 })
   isEdit.value = true
   editingId.value = row.id
   parentId.value = row.parentId || null

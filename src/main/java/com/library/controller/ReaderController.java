@@ -10,6 +10,7 @@ import com.library.service.ReaderService;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -81,8 +82,11 @@ public class ReaderController {
     public Result<?> updateReader(@PathVariable Long id, @RequestBody Reader reader) {
         reader.setId(id);
         reader.setPassword(null); // 不修改密码
-        boolean success = readerService.updateById(reader);
-        return success ? Result.success("更新成功") : Result.error("更新失败");
+        try {
+            return readerService.updateReader(reader) ? Result.success("更新成功") : Result.error("更新失败");
+        } catch (Exception e) {
+            return Result.error(e.getMessage());
+        }
     }
 
     @PutMapping("/admin/readers/{id}/loss")
@@ -147,6 +151,13 @@ public class ReaderController {
 
     // ==================== 读者类型 ====================
 
+    @GetMapping("/reader-types")
+    public Result<?> publicReaderTypes() {
+        return Result.success(readerService.listReaderTypes().stream()
+                .filter(type -> type.getStatus() != null && type.getStatus() == 1)
+                .toList());
+    }
+
     @GetMapping("/admin/reader-types")
     public Result<?> listReaderTypes() {
         return Result.success(readerService.listReaderTypes());
@@ -155,14 +166,22 @@ public class ReaderController {
     @PostMapping("/admin/reader-types")
     @PreAuthorize("hasRole('super_admin')")
     public Result<?> addReaderType(@RequestBody ReaderType type) {
-        return readerService.saveReaderType(type) ? Result.success("添加成功") : Result.error("添加失败");
+        try {
+            return readerService.saveReaderType(type) ? Result.success("添加成功") : Result.error("添加失败");
+        } catch (Exception e) {
+            return Result.error(e.getMessage());
+        }
     }
 
     @PutMapping("/admin/reader-types/{id}")
     @PreAuthorize("hasRole('super_admin')")
     public Result<?> updateReaderType(@PathVariable Long id, @RequestBody ReaderType type) {
         type.setId(id);
-        return readerService.updateReaderType(type) ? Result.success("更新成功") : Result.error("更新失败");
+        try {
+            return readerService.updateReaderType(type) ? Result.success("更新成功") : Result.error("更新失败");
+        } catch (Exception e) {
+            return Result.error(e.getMessage());
+        }
     }
 
     // ==================== 读者个人中心 ====================
@@ -185,7 +204,12 @@ public class ReaderController {
         reader.setPassword(null); // 不修改密码
         reader.setCardNo(null); // 不允许修改证件号
         reader.setStatus(null); // 不允许修改状态
-        return readerService.updateById(reader) ? Result.success("更新成功") : Result.error("更新失败");
+        reader.setTypeId(null); // 不允许修改读者类型
+        try {
+            return readerService.updateReader(reader) ? Result.success("更新成功") : Result.error("更新失败");
+        } catch (Exception e) {
+            return Result.error(e.getMessage());
+        }
     }
 
     @PutMapping("/reader/password")
@@ -197,10 +221,16 @@ public class ReaderController {
         if (reader == null) return Result.error("读者不存在");
         String oldPwd = params.get("oldPassword");
         String newPwd = params.get("newPassword");
+        if (!StringUtils.hasText(oldPwd)) {
+            return Result.error("请输入原密码");
+        }
+        if (!StringUtils.hasText(newPwd)) {
+            return Result.error("请输入新密码");
+        }
         if (!org.springframework.security.crypto.bcrypt.BCrypt.checkpw(oldPwd, reader.getPassword())) {
             return Result.error("原密码错误");
         }
-        reader.setPassword(new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder().encode(newPwd));
+        reader.setPassword(new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder().encode(newPwd.trim()));
         return readerService.updateById(reader) ? Result.success("密码修改成功") : Result.error("修改失败");
     }
 

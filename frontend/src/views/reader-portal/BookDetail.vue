@@ -5,7 +5,7 @@
         <!-- 封面 -->
         <el-col :span="6">
           <el-image
-            :src="book.coverUrl"
+            :src="book.cover"
             fit="cover"
             style="width: 100%; border-radius: 8px;"
           >
@@ -25,15 +25,15 @@
             <el-descriptions-item label="作者">{{ book.author }}</el-descriptions-item>
             <el-descriptions-item label="ISBN">{{ book.isbn }}</el-descriptions-item>
             <el-descriptions-item label="出版社">{{ book.publisher }}</el-descriptions-item>
-            <el-descriptions-item label="出版日期">{{ book.publishDate }}</el-descriptions-item>
+            <el-descriptions-item label="出版日期">{{ book.pubDate }}</el-descriptions-item>
             <el-descriptions-item label="分类">{{ book.categoryName }}</el-descriptions-item>
             <el-descriptions-item label="价格">{{ book.price ? `¥${book.price}` : '-' }}</el-descriptions-item>
             <el-descriptions-item label="总馆藏">
-              <span>{{ book.totalCopies || 0 }} 册</span>
+              <span>{{ book.totalCount || 0 }} 册</span>
             </el-descriptions-item>
             <el-descriptions-item label="可借数量">
-              <el-tag :type="book.available > 0 ? 'success' : 'danger'" size="large">
-                {{ book.available || 0 }} 册
+              <el-tag :type="book.availableCount > 0 ? 'success' : 'danger'" size="large">
+                {{ book.availableCount || 0 }} 册
               </el-tag>
             </el-descriptions-item>
           </el-descriptions>
@@ -45,12 +45,13 @@
 
           <div class="action-bar">
             <el-button
-              v-if="book.available > 0"
+              v-if="book.availableCount > 0"
               type="primary"
               size="large"
-              disabled
+              :loading="borrowing"
+              @click="handleBorrow"
             >
-              <el-icon><Collection /></el-icon> 可前往借阅
+              <el-icon><Collection /></el-icon> 借阅此书
             </el-button>
             <el-button
               v-else
@@ -64,6 +65,19 @@
           </div>
         </el-col>
       </el-row>
+    </el-card>
+
+    <!-- 可借副本 -->
+    <el-card class="copies-card" v-if="book && book.availableCount > 0">
+      <template #header><span>可借副本位置</span></template>
+      <el-table :data="availableCopies" v-loading="copyLoading" stripe border>
+        <el-table-column prop="id" label="副本ID" width="90" />
+        <el-table-column prop="barcode" label="条码号" width="140" />
+        <el-table-column prop="location" label="馆藏位置" min-width="150" />
+        <el-table-column prop="floor" label="楼层" width="90" />
+        <el-table-column prop="shelf" label="书架" width="120" />
+      </el-table>
+      <el-empty v-if="!copyLoading && availableCopies.length === 0" description="暂无可借副本" />
     </el-card>
 
     <!-- 借阅历史 -->
@@ -91,21 +105,24 @@
 import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getBook } from '../../api/modules/book'
-import { reserveBook } from '../../api/modules/borrow'
+import { getAvailableCopies, getBook } from '../../api/modules/book'
+import { readerBorrowBook, reserveBook } from '../../api/modules/borrow'
 
 const route = useRoute()
 const loading = ref(false)
+const copyLoading = ref(false)
+const borrowing = ref(false)
 const reserving = ref(false)
 const book = ref(null)
+const availableCopies = ref([])
 
 const borrowStatusType = (status) => {
-  const map = { 0: 'warning', 1: 'success', 2: 'danger' }
+  const map = { 1: 'warning', 2: 'success', 3: 'danger', 4: 'info' }
   return map[status] || 'info'
 }
 
 const borrowStatusLabel = (status) => {
-  const map = { 0: '借阅中', 1: '已归还', 2: '已逾期' }
+  const map = { 1: '借阅中', 2: '已归还', 3: '已逾期', 4: '丢失' }
   return map[status] || '未知'
 }
 
@@ -114,11 +131,45 @@ const fetchBook = async () => {
   try {
     const res = await getBook(route.params.id)
     book.value = res.data
+    fetchAvailableCopies()
   } catch {
     // handled
   } finally {
     loading.value = false
   }
+}
+
+const fetchAvailableCopies = async () => {
+  copyLoading.value = true
+  try {
+    const res = await getAvailableCopies(route.params.id)
+    availableCopies.value = res.data || []
+  } catch {
+    availableCopies.value = []
+  } finally {
+    copyLoading.value = false
+  }
+}
+
+const handleBorrow = () => {
+  ElMessageBox.confirm('确定借阅此书？系统会自动选择一个在馆副本。', '借阅确认', {
+    type: 'info',
+    confirmButtonText: '确定借阅',
+    cancelButtonText: '取消'
+  }).then(async () => {
+    borrowing.value = true
+    try {
+      const res = await readerBorrowBook({ bookId: book.value.id })
+      const record = res.data || {}
+      const location = [record.copyLocation, record.copyFloor, record.copyShelf].filter(Boolean).join(' / ')
+      ElMessage.success(`借阅成功，应还日期：${record.dueDate || '-'}${record.copyBarcode ? `，副本：${record.copyBarcode}` : ''}${location ? `，位置：${location}` : ''}`)
+      fetchBook()
+    } catch {
+      // handled
+    } finally {
+      borrowing.value = false
+    }
+  }).catch(() => {})
 }
 
 const handleReserve = () => {
@@ -186,6 +237,9 @@ onMounted(() => {
   margin-top: 24px;
 }
 .history-card {
+  margin-top: 20px;
+}
+.copies-card {
   margin-top: 20px;
 }
 </style>

@@ -4,6 +4,8 @@ import request from '../request'
 export const searchBooks = (params) => request.get('/book/search', { params })
 // 图书详情
 export const getBook = (id) => request.get(`/book/${id}`)
+// 可借副本
+export const getAvailableCopies = (id) => request.get(`/book/${id}/available-copies`)
 // 借阅排行
 export const getBorrowRank = (limit = 10) => request.get('/book/rank', { params: { limit } })
 // 新书推荐
@@ -14,6 +16,14 @@ export const getBooks = (params) => request.get('/admin/books', { params })
 export const addBook = (data) => request.post('/admin/books', data)
 // 更新图书
 export const updateBook = (id, data) => request.put(`/admin/books/${id}`, data)
+// 上传图书封面
+export const uploadBookCover = (file) => {
+  const formData = new FormData()
+  formData.append('file', file)
+  return request.post('/admin/books/cover', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  })
+}
 // 删除图书
 export const deleteBook = (id) => request.delete(`/admin/books/${id}`)
 // 副本管理

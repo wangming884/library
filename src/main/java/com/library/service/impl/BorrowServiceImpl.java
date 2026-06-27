@@ -42,7 +42,7 @@ public class BorrowServiceImpl extends ServiceImpl<BorrowRecordMapper, BorrowRec
 
     @Override
     @Transactional
-    public String borrow(Long readerId, Long copyId, Long operatorId) {
+    public BorrowRecord borrow(Long readerId, Long copyId, Long operatorId) {
         // 校验读者
         Reader reader = readerMapper.selectWithTypeInfo(readerId);
         if (reader == null) throw new RuntimeException("读者不存在");
@@ -68,19 +68,28 @@ public class BorrowServiceImpl extends ServiceImpl<BorrowRecordMapper, BorrowRec
         }
 
         // 校验副本
+        if (copyId == null) {
+            throw new RuntimeException("请选择图书副本");
+        }
         BookCopy copy = bookCopyMapper.selectById(copyId);
         if (copy == null) throw new RuntimeException("图书副本不存在");
+        reconcileBookInventory(copy.getBookId());
+        copy = bookCopyMapper.selectById(copyId);
         if (copy.getStatus() != Constants.COPY_STATUS_AVAILABLE) {
             throw new RuntimeException("该副本不在馆，无法借出");
+        }
+        if (borrowRecordMapper.countActiveByCopyId(copyId) > 0) {
+            copy.setStatus(Constants.COPY_STATUS_BORROWED);
+            bookCopyMapper.updateById(copy);
+            refreshBookCounts(copy.getBookId());
+            throw new RuntimeException("该副本已有未归还记录，无法重复借出");
         }
 
         // 校验是否为稀有书籍
         Book book = bookMapper.selectById(copy.getBookId());
         if (book != null && book.getIsRare() != null && book.getIsRare() == 1) {
-            Integer canBorrowRare = reader.getRenewTimes(); // 复用字段获取readerType
-            // 需要从reader_type获取
-            if (canBorrowRare == null || canBorrowRare == 0) {
-                // 重新查询 reader_type
+            if (reader.getCanBorrowRare() == null || reader.getCanBorrowRare() != 1) {
+                throw new RuntimeException("当前读者类型不能借阅珍稀图书");
             }
         }
 
@@ -103,16 +112,39 @@ public class BorrowServiceImpl extends ServiceImpl<BorrowRecordMapper, BorrowRec
         copy.setStatus(Constants.COPY_STATUS_BORROWED);
         bookCopyMapper.updateById(copy);
 
-        // 更新图书可借数
-        book.setAvailableCount(Math.max(0, book.getAvailableCount() - 1));
-        bookMapper.updateById(book);
+        refreshBookCounts(copy.getBookId());
 
-        return "借阅成功，应还日期：" + record.getDueDate().toLocalDate();
+        return borrowRecordMapper.selectWithDetails(record.getId());
     }
 
     @Override
     @Transactional
-    public String returnBook(Long borrowRecordId, Long operatorId) {
+    public BorrowRecord borrowAvailableCopy(Long readerId, Long bookId, Long operatorId) {
+        if (bookId == null) {
+            throw new RuntimeException("请选择图书");
+        }
+        Book book = bookMapper.selectById(bookId);
+        if (book == null) {
+            throw new RuntimeException("图书不存在");
+        }
+        reconcileBookInventory(bookId);
+        BookCopy copy = bookCopyMapper.selectOne(new LambdaQueryWrapper<BookCopy>()
+                .eq(BookCopy::getBookId, bookId)
+                .eq(BookCopy::getStatus, Constants.COPY_STATUS_AVAILABLE)
+                .orderByAsc(BookCopy::getLocation)
+                .orderByAsc(BookCopy::getShelf)
+                .orderByAsc(BookCopy::getId)
+                .last("LIMIT 1"));
+        if (copy == null) {
+            refreshBookCounts(bookId);
+            throw new RuntimeException("暂无可借副本，请预约或等待归还");
+        }
+        return borrow(readerId, copy.getId(), operatorId);
+    }
+
+    @Override
+    @Transactional
+    public BorrowRecord returnBook(Long borrowRecordId, Long operatorId) {
         BorrowRecord record = borrowRecordMapper.selectById(borrowRecordId);
         if (record == null) throw new RuntimeException("借阅记录不存在");
         if (record.getStatus() != Constants.BORROW_STATUS_BORROWED
@@ -128,22 +160,33 @@ public class BorrowServiceImpl extends ServiceImpl<BorrowRecordMapper, BorrowRec
 
         // 检查是否逾期
         if (now.isAfter(record.getDueDate())) {
-            record.setStatus(Constants.BORROW_STATUS_OVERDUE);
+            record.setStatus(Constants.BORROW_STATUS_RETURNED);
             // 计算罚金
             long overdueDays = java.time.Duration.between(record.getDueDate(), now).toDays();
             if (overdueDays == 0) overdueDays = 1;
             BigDecimal dailyRate = new BigDecimal(configService.getValue("fine.daily_rate", "0.50"));
             BigDecimal fineAmount = dailyRate.multiply(BigDecimal.valueOf(overdueDays));
 
-            FineRecord fine = new FineRecord();
-            fine.setReaderId(record.getReaderId());
-            fine.setBorrowRecordId(record.getId());
-            fine.setType(Constants.FINE_TYPE_OVERDUE);
-            fine.setAmount(fineAmount);
-            fine.setPaidAmount(BigDecimal.ZERO);
-            fine.setStatus(0);
-            fineRecordMapper.insert(fine);
-            msg.append("，逾期 ").append(overdueDays).append(" 天，罚款 ¥").append(fineAmount);
+            if (fineRecordMapper.countByBorrowRecordAndType(record.getId(), Constants.FINE_TYPE_OVERDUE) == 0) {
+                FineRecord fine = new FineRecord();
+                fine.setReaderId(record.getReaderId());
+                fine.setBorrowRecordId(record.getId());
+                fine.setType(Constants.FINE_TYPE_OVERDUE);
+                fine.setAmount(fineAmount);
+                fine.setPaidAmount(BigDecimal.ZERO);
+                fine.setStatus(0);
+                fineRecordMapper.insert(fine);
+
+                Reader reader = readerMapper.selectById(record.getReaderId());
+                if (reader != null) {
+                    BigDecimal balance = reader.getBalance() == null ? BigDecimal.ZERO : reader.getBalance();
+                    reader.setBalance(balance.subtract(fineAmount));
+                    readerMapper.updateById(reader);
+                }
+                msg.append("，逾期 ").append(overdueDays).append(" 天，罚款 ¥").append(fineAmount);
+            } else {
+                msg.append("，逾期罚款已存在");
+            }
         } else {
             record.setStatus(Constants.BORROW_STATUS_RETURNED);
         }
@@ -158,8 +201,7 @@ public class BorrowServiceImpl extends ServiceImpl<BorrowRecordMapper, BorrowRec
             // 更新图书可借数
             Book book = bookMapper.selectById(copy.getBookId());
             if (book != null) {
-                book.setAvailableCount(book.getAvailableCount() + 1);
-                bookMapper.updateById(book);
+                refreshBookCounts(copy.getBookId());
             }
         }
 
@@ -179,7 +221,11 @@ public class BorrowServiceImpl extends ServiceImpl<BorrowRecordMapper, BorrowRec
             msg.append("；有读者预约，已通知取书");
         }
 
-        return msg.toString();
+        BorrowRecord detail = borrowRecordMapper.selectWithDetails(record.getId());
+        if (detail != null) {
+            detail.setRemark(msg.toString());
+        }
+        return detail;
     }
 
     @Override
@@ -187,10 +233,27 @@ public class BorrowServiceImpl extends ServiceImpl<BorrowRecordMapper, BorrowRec
     public String renew(Long borrowRecordId, Long operatorId) {
         BorrowRecord record = borrowRecordMapper.selectById(borrowRecordId);
         if (record == null) throw new RuntimeException("借阅记录不存在");
+        return renewRecord(record, operatorId);
+    }
+
+    @Override
+    @Transactional
+    public String renewForReader(Long borrowRecordId, Long readerId) {
+        if (readerId == null) {
+            throw new RuntimeException("未登录");
+        }
+        BorrowRecord record = borrowRecordMapper.selectById(borrowRecordId);
+        if (record == null) throw new RuntimeException("借阅记录不存在");
+        if (!readerId.equals(record.getReaderId())) {
+            throw new RuntimeException("只能续借自己的借阅记录");
+        }
+        return renewRecord(record, null);
+    }
+
+    private String renewRecord(BorrowRecord record, Long operatorId) {
         if (record.getStatus() != Constants.BORROW_STATUS_BORROWED) {
             throw new RuntimeException("当前状态不允许续借");
         }
-
         Reader reader = readerMapper.selectWithTypeInfo(record.getReaderId());
         int maxRenew = reader != null && reader.getRenewTimes() != null ? reader.getRenewTimes()
                 : Integer.parseInt(configService.getValue("borrow.renew_times", "1"));
@@ -225,7 +288,11 @@ public class BorrowServiceImpl extends ServiceImpl<BorrowRecordMapper, BorrowRec
         // 检查是否还有可借副本
         Book book = bookMapper.selectById(bookId);
         if (book == null) throw new RuntimeException("图书不存在");
-        if (book.getAvailableCount() > 0) {
+        long availableCopies = bookCopyMapper.selectCount(new LambdaQueryWrapper<BookCopy>()
+                .eq(BookCopy::getBookId, bookId)
+                .eq(BookCopy::getStatus, Constants.COPY_STATUS_AVAILABLE));
+        if (availableCopies > 0) {
+            refreshBookCounts(bookId);
             throw new RuntimeException("该图书有可借副本，请直接借阅");
         }
 
@@ -251,6 +318,23 @@ public class BorrowServiceImpl extends ServiceImpl<BorrowRecordMapper, BorrowRec
     public boolean cancelReservation(Long reservationId) {
         Reservation reservation = reservationMapper.selectById(reservationId);
         if (reservation == null) throw new RuntimeException("预约记录不存在");
+        return cancelReservationRecord(reservation);
+    }
+
+    @Override
+    public boolean cancelReservationForReader(Long reservationId, Long readerId) {
+        if (readerId == null) {
+            throw new RuntimeException("未登录");
+        }
+        Reservation reservation = reservationMapper.selectById(reservationId);
+        if (reservation == null) throw new RuntimeException("预约记录不存在");
+        if (!readerId.equals(reservation.getReaderId())) {
+            throw new RuntimeException("只能取消自己的预约");
+        }
+        return cancelReservationRecord(reservation);
+    }
+
+    private boolean cancelReservationRecord(Reservation reservation) {
         if (reservation.getStatus() != Constants.RESERVE_STATUS_WAITING) {
             throw new RuntimeException("当前状态无法取消");
         }
@@ -260,23 +344,13 @@ public class BorrowServiceImpl extends ServiceImpl<BorrowRecordMapper, BorrowRec
 
     @Override
     public PageResult<BorrowRecord> listBorrowRecords(int page, int size, Long readerId, Integer status, String keyword) {
-        LambdaQueryWrapper<BorrowRecord> wrapper = new LambdaQueryWrapper<>();
-        if (readerId != null) wrapper.eq(BorrowRecord::getReaderId, readerId);
-        if (status != null) wrapper.eq(BorrowRecord::getStatus, status);
-        wrapper.orderByDesc(BorrowRecord::getCreateTime);
-
-        Page<BorrowRecord> result = borrowRecordMapper.selectPage(new Page<>(page, size), wrapper);
+        Page<BorrowRecord> result = borrowRecordMapper.selectRecordPage(new Page<>(page, size), readerId, status, keyword);
         return new PageResult<>(result.getRecords(), result.getTotal(), page, size);
     }
 
     @Override
-    public PageResult<Reservation> listReservations(int page, int size, Long readerId, Integer status) {
-        LambdaQueryWrapper<Reservation> wrapper = new LambdaQueryWrapper<>();
-        if (readerId != null) wrapper.eq(Reservation::getReaderId, readerId);
-        if (status != null) wrapper.eq(Reservation::getStatus, status);
-        wrapper.orderByDesc(Reservation::getCreateTime);
-
-        Page<Reservation> result = reservationMapper.selectPage(new Page<>(page, size), wrapper);
+    public PageResult<Reservation> listReservations(int page, int size, Long readerId, Integer status, String keyword) {
+        Page<Reservation> result = reservationMapper.selectReservationPage(new Page<>(page, size), readerId, status, keyword);
         return new PageResult<>(result.getRecords(), result.getTotal(), page, size);
     }
 
@@ -311,5 +385,45 @@ public class BorrowServiceImpl extends ServiceImpl<BorrowRecordMapper, BorrowRec
                         .lt(BorrowRecord::getDueDate, tomorrow));
         // 实际项目中这里发送短信/站内信，此处仅返回数量
         return records.size();
+    }
+
+    private void reconcileBookInventory(Long bookId) {
+        List<BookCopy> copies = bookCopyMapper.selectList(new LambdaQueryWrapper<BookCopy>()
+                .eq(BookCopy::getBookId, bookId));
+        for (BookCopy copy : copies) {
+            int activeBorrowCount = borrowRecordMapper.countActiveByCopyId(copy.getId());
+            Integer currentStatus = copy.getStatus();
+            Integer expectedStatus = currentStatus;
+
+            if (activeBorrowCount > 0) {
+                expectedStatus = Constants.COPY_STATUS_BORROWED;
+            } else if (currentStatus == null
+                    || currentStatus < Constants.COPY_STATUS_AVAILABLE
+                    || currentStatus > Constants.COPY_STATUS_SEALED
+                    || currentStatus == Constants.COPY_STATUS_BORROWED) {
+                expectedStatus = Constants.COPY_STATUS_AVAILABLE;
+            }
+
+            if (!expectedStatus.equals(currentStatus)) {
+                copy.setStatus(expectedStatus);
+                bookCopyMapper.updateById(copy);
+            }
+        }
+        refreshBookCounts(bookId);
+    }
+
+    private void refreshBookCounts(Long bookId) {
+        Book book = bookMapper.selectById(bookId);
+        if (book == null) {
+            return;
+        }
+        long totalCount = bookCopyMapper.selectCount(new LambdaQueryWrapper<BookCopy>()
+                .eq(BookCopy::getBookId, bookId));
+        long availableCount = bookCopyMapper.selectCount(new LambdaQueryWrapper<BookCopy>()
+                .eq(BookCopy::getBookId, bookId)
+                .eq(BookCopy::getStatus, Constants.COPY_STATUS_AVAILABLE));
+        book.setTotalCount((int) totalCount);
+        book.setAvailableCount((int) availableCount);
+        bookMapper.updateById(book);
     }
 }

@@ -51,10 +51,9 @@ const fetchConfigs = async () => {
 const handleSave = async () => {
   saving.value = true
   try {
-    const data = configList.value.map(item => ({
-      configKey: item.configKey,
-      configValue: item.configValue
-    }))
+    const data = Object.fromEntries(
+      configList.value.map(item => [item.configKey, String(item.configValue ?? '')])
+    )
     await updateConfigs(data)
     ElMessage.success('配置保存成功')
     fetchConfigs()

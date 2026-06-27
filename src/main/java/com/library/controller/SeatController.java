@@ -61,8 +61,16 @@ public class SeatController {
      */
     @PostMapping("/seat/checkin/{id}")
     public Result<?> checkIn(@PathVariable Long id) {
+        LoginUser user = getCurrentUser();
+        if (user == null) return Result.error(401, "未登录");
+        if (!isSeatAdmin(user) && !isReader(user)) {
+            return Result.error(403, "权限不足");
+        }
         try {
-            return seatService.checkIn(id) ? Result.success("签到成功") : Result.error("签到失败");
+            boolean success = isSeatAdmin(user)
+                    ? seatService.checkIn(id)
+                    : seatService.checkInForReader(id, user.getUserId());
+            return success ? Result.success("签到成功") : Result.error("签到失败");
         } catch (Exception e) {
             return Result.error(e.getMessage());
         }
@@ -73,8 +81,16 @@ public class SeatController {
      */
     @PostMapping("/seat/release/{id}")
     public Result<?> release(@PathVariable Long id) {
+        LoginUser user = getCurrentUser();
+        if (user == null) return Result.error(401, "未登录");
+        if (!isSeatAdmin(user) && !isReader(user)) {
+            return Result.error(403, "权限不足");
+        }
         try {
-            return seatService.release(id) ? Result.success("已释放") : Result.error("操作失败");
+            boolean success = isSeatAdmin(user)
+                    ? seatService.release(id)
+                    : seatService.releaseForReader(id, user.getUserId());
+            return success ? Result.success("已释放") : Result.error("操作失败");
         } catch (Exception e) {
             return Result.error(e.getMessage());
         }
@@ -95,12 +111,30 @@ public class SeatController {
     }
 
     /**
+     * 读者查看自己的座位预约记录
+     */
+    @GetMapping("/reader/seat-reservations")
+    public Result<?> mySeatReservations(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) LocalDate date,
+            @RequestParam(required = false) Integer status) {
+        LoginUser user = getCurrentUser();
+        if (user == null) return Result.error(401, "未登录");
+        return Result.success(seatService.listReservations(page, size, user.getUserId(), date, status));
+    }
+
+    /**
      * 管理员管理座位
      */
     @PostMapping("/admin/seats")
     @PreAuthorize("hasRole('super_admin')")
     public Result<?> addSeat(@RequestBody Seat seat) {
-        return seatService.saveSeat(seat) ? Result.success("添加成功") : Result.error("添加失败");
+        try {
+            return seatService.saveSeat(seat) ? Result.success("添加成功") : Result.error("添加失败");
+        } catch (Exception e) {
+            return Result.error(e.getMessage());
+        }
     }
 
     private LoginUser getCurrentUser() {
@@ -109,5 +143,14 @@ public class SeatController {
             return (LoginUser) auth.getPrincipal();
         }
         return null;
+    }
+
+    private boolean isSeatAdmin(LoginUser user) {
+        return user != null
+                && ("super_admin".equals(user.getRoleKey()) || "front_desk".equals(user.getRoleKey()));
+    }
+
+    private boolean isReader(LoginUser user) {
+        return user != null && "reader".equals(user.getRoleKey());
     }
 }

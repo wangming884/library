@@ -12,5 +12,7 @@ public interface AnnouncementService extends IService<Announcement> {
 
     boolean toggleTop(Long id);
 
+    boolean removeAnnouncement(Long id);
+
     void incrementView(Long id);
 }

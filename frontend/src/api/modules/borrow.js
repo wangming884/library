@@ -15,6 +15,7 @@ export const checkOverdue = () => request.post('/admin/check-overdue')
 // 催还
 export const sendReminders = () => request.post('/admin/send-reminders')
 // 读者自助
+export const readerBorrowBook = (data) => request.post('/reader/borrow', data)
 export const reserveBook = (data) => request.post('/reader/reserve', data)
 export const cancelReservation = (id) => request.delete(`/reader/reservations/${id}`)
 export const readerRenew = (id) => request.post(`/reader/renew/${id}`)
