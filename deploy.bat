@@ -7,6 +7,17 @@ rem If Tomcat is installed elsewhere, set CATALINA_HOME before running this file
 rem or change the default path below.
 if not defined CATALINA_HOME set "CATALINA_HOME=E:\Apache Software Foundation\Tomcat 9.0"
 
+echo.
+echo  当前 Tomcat 路径：%CATALINA_HOME%
+echo  如需更改请输入新路径，直接回车则使用当前路径。
+echo.
+set /p "TOMCAT_INPUT=  Tomcat 路径: "
+if defined TOMCAT_INPUT (
+    set "CATALINA_HOME=%TOMCAT_INPUT:"=%"
+    echo  已切换到：%CATALINA_HOME%
+)
+echo.
+
 set "APP_NAME=library"
 set "PROJECT_DIR=%~dp0"
 set "FRONTEND_DIR=%PROJECT_DIR%frontend"
