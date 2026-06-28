@@ -1,0 +1,1 @@
+import{r as n}from"./request-rYv-J4s-.js";const i=e=>n.get("/admin/fines",{params:e}),t=(e,s)=>n.post(`/admin/fines/${e}/pay`,s),m=e=>n.get("/admin/fines/summary",{params:e}),r=e=>n.get("/reader/fines",{params:e}),o=()=>n.get("/reader/fines/unpaid");export{m as a,o as b,i as g,r as m,t as p};

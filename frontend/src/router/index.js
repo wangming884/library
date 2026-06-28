@@ -62,7 +62,9 @@ const routes = [
   },
   {
     path: '/',
-    redirect: '/login'
+    name: 'Landing',
+    component: () => import('../views/landing/LandingPage.vue'),
+    meta: { title: '首页' }
   }
 ]
 
