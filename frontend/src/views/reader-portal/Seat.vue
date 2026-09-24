@@ -285,10 +285,12 @@
 
 <script setup>
 import { reactive, ref, computed, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { OfficeBuilding, Search, Grid, Menu, Calendar, Monitor } from '@element-plus/icons-vue'
 import { checkInSeat, getAvailableSeats, mySeatReservations, releaseSeat, reserveSeat } from '../../api/modules/seat'
 
+const route = useRoute()
 const today = new Date().toISOString().slice(0, 10)
 const roomName = ref('')
 const viewMode = ref('visual')
@@ -420,6 +422,9 @@ const handleRelease = (row) => {
 }
 
 onMounted(() => {
+  if (route.query.floor) {
+    roomName.value = String(route.query.floor)
+  }
   fetchSeats()
   fetchReservations()
 })

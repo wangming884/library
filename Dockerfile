@@ -25,6 +25,7 @@ ENV TZ=Asia/Shanghai
 ENV LIBRARY_UPLOAD_DIR=/data/library/uploads
 
 RUN rm -rf /usr/local/tomcat/webapps/* \
+    && sed -i 's/port="8005"/port="-1"/g' /usr/local/tomcat/conf/server.xml \
     && mkdir -p /data/library/uploads
 
 COPY --from=backend-build /workspace/target/library.war /usr/local/tomcat/webapps/library.war

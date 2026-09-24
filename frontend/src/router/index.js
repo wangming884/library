@@ -54,8 +54,11 @@ const routes = [
     children: [
       { path: 'home', name: 'Home', component: () => import('../views/reader-portal/Home.vue'), meta: { title: '首页' } },
       { path: 'search', name: 'Search', component: () => import('../views/reader-portal/Search.vue'), meta: { title: '图书检索' } },
-      { path: 'book/:id', name: 'BookDetail', component: () => import('../views/reader-portal/BookDetail.vue'), meta: { title: '图书详情' } },
+      { path: 'rank', name: 'Rank', component: () => import('../views/reader-portal/Rank.vue'), meta: { title: '榜单精选' } },
       { path: 'seat', name: 'Seat', component: () => import('../views/reader-portal/Seat.vue'), meta: { title: '座位预约' } },
+      { path: 'news', name: 'News', component: () => import('../views/reader-portal/News.vue'), meta: { title: '馆务资讯' } },
+      { path: 'guide', name: 'Guide', component: () => import('../views/reader-portal/Guide.vue'), meta: { title: '服务指南' } },
+      { path: 'book/:id', name: 'BookDetail', component: () => import('../views/reader-portal/BookDetail.vue'), meta: { title: '图书详情' } },
       { path: 'center', name: 'Center', component: () => import('../views/reader-portal/Center.vue'), meta: { title: '个人中心' } },
       { path: 'feedback', name: 'FeedbackPortal', component: () => import('../views/reader-portal/Feedback.vue'), meta: { title: '留言反馈' } },
     ]

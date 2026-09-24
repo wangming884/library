@@ -295,7 +295,8 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, watch, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useUserStore } from '../../stores/user'
 import { myBorrowRecords, myReservations, cancelReservation, readerRenew, readerReturnBook } from '../../api/modules/borrow'
@@ -303,7 +304,17 @@ import { myFines, myUnpaidAmount } from '../../api/modules/fine'
 import { getProfile, updateProfile, changeReaderPassword } from '../../api/modules/reader'
 
 const userStore = useUserStore()
-const activeTab = ref('borrow')
+const route = useRoute()
+const activeTab = ref(route.query.tab || 'borrow')
+
+watch(
+  () => route.query.tab,
+  (newTab) => {
+    if (newTab) {
+      activeTab.value = newTab
+    }
+  }
+)
 
 // === 借阅记录 ===
 const borrowLoading = ref(false)

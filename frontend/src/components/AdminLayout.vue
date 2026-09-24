@@ -229,67 +229,15 @@
 </template>
 
 <script setup>
-
-import { onMounted, onBeforeUnmount } from 'vue'
-import { Search, Right, Compass, FullScreen, Aim, UserFilled, SwitchButton, Close, ArrowDown, Collection, Odometer, User, Reading, Document, OfficeBuilding, Money, DataAnalysis, Setting } from '@element-plus/icons-vue'
-
-const commandPaletteVisible = ref(false)
-const cmdSearchQuery = ref('')
-
-const allNavItems = [
-  { title: '仪表盘 (总览)', path: '/admin/dashboard', icon: 'Odometer', roles: ['super_admin', 'cataloger', 'circulation', 'front_desk'] },
-  { title: '读者管理 (读者列表)', path: '/admin/readers', icon: 'User', roles: ['super_admin', 'circulation', 'front_desk'] },
-  { title: '读者类型设置', path: '/admin/reader-types', icon: 'User', roles: ['super_admin'] },
-  { title: '图书管理 (图书列表)', path: '/admin/books', icon: 'Reading', roles: ['super_admin', 'cataloger'] },
-  { title: '副本馆藏管理', path: '/admin/copies', icon: 'Reading', roles: ['super_admin', 'cataloger', 'circulation', 'front_desk'] },
-  { title: '分类管理 (中图分类)', path: '/admin/categories', icon: 'Reading', roles: ['super_admin', 'cataloger'] },
-  { title: '借还办理 (借书/还书)', path: '/admin/borrow', icon: 'Document', roles: ['super_admin', 'circulation', 'front_desk'] },
-  { title: '借阅记录检索', path: '/admin/borrow-records', icon: 'Document', roles: ['super_admin', 'circulation', 'front_desk'] },
-  { title: '预约管理', path: '/admin/reservations', icon: 'Document', roles: ['super_admin', 'circulation', 'front_desk'] },
-  { title: '自习室与座位预约', path: '/admin/seat-reservations', icon: 'OfficeBuilding', roles: ['super_admin', 'front_desk'] },
-  { title: '罚款管理与清缴', path: '/admin/fines', icon: 'Money', roles: ['super_admin', 'circulation', 'front_desk'] },
-  { title: '业务统计与趋势报表', path: '/admin/reports', icon: 'DataAnalysis', roles: ['super_admin', 'circulation'] },
-  { title: '系统参数设置', path: '/admin/config', icon: 'Setting', roles: ['super_admin'] },
-  { title: '公告通知发布管理', path: '/admin/announcements', icon: 'Setting', roles: ['super_admin', 'circulation'] },
-  { title: '读者留言与诉求反馈', path: '/admin/feedback', icon: 'Setting', roles: ['super_admin', 'circulation', 'front_desk'] },
-  { title: '管理员操作日志审计', path: '/admin/logs', icon: 'Setting', roles: ['super_admin'] },
-  { title: '前往读者前台门户', path: '/portal/home', icon: 'Compass', roles: ['super_admin', 'cataloger', 'circulation', 'front_desk'] },
-]
-
-const filteredMenuItems = computed(() => {
-  const query = cmdSearchQuery.value.trim().toLowerCase()
-  return allNavItems.filter(item => {
-    const hasRole = !item.roles || item.roles.includes(userStore.roleKey)
-    if (!hasRole) return false
-    if (!query) return true
-    return item.title.toLowerCase().includes(query) || item.path.toLowerCase().includes(query)
-  })
-})
-
-const handleNavigate = (path) => {
-  commandPaletteVisible.value = false
-  cmdSearchQuery.value = ''
-  router.push(path)
-}
-
-const handleKeydown = (e) => {
-  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
-    e.preventDefault()
-    commandPaletteVisible.value = !commandPaletteVisible.value
-  }
-}
-
-onMounted(() => {
-  window.addEventListener('keydown', handleKeydown)
-})
-
-onBeforeUnmount(() => {
-  window.removeEventListener('keydown', handleKeydown)
-})
-
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useUserStore } from '../stores/user'
 import { ElMessageBox } from 'element-plus'
+import {
+  Search, Right, Compass, FullScreen, Aim, UserFilled, SwitchButton,
+  Close, ArrowDown, Collection, Odometer, User, Reading, Document,
+  OfficeBuilding, Money, DataAnalysis, Setting
+} from '@element-plus/icons-vue'
+import { useUserStore } from '../stores/user'
 
 const route = useRoute()
 const router = useRouter()
@@ -368,15 +316,70 @@ const goToPortal = () => {
 }
 
 const handleLogout = () => {
-  ElMessageBox.confirm('确定退出管理员系统？', '提示', {
-    type: 'warning',
-    confirmButtonText: '退出',
-    cancelButtonText: '取消'
+  ElMessageBox.confirm('确定要退出当前管理员账号吗？', '提示', {
+    confirmButtonText: '确定退出',
+    cancelButtonText: '取消',
+    type: 'warning'
   }).then(() => {
     userStore.logout()
     router.push('/login')
   }).catch(() => {})
 }
+
+// 全局指令面板 (Ctrl + K)
+const commandPaletteVisible = ref(false)
+const cmdSearchQuery = ref('')
+
+const allNavItems = [
+  { title: '仪表盘 (总览)', path: '/admin/dashboard', icon: 'Odometer', roles: ['super_admin', 'cataloger', 'circulation', 'front_desk'] },
+  { title: '读者管理 (读者列表)', path: '/admin/readers', icon: 'User', roles: ['super_admin', 'circulation', 'front_desk'] },
+  { title: '读者类型设置', path: '/admin/reader-types', icon: 'User', roles: ['super_admin'] },
+  { title: '图书管理 (图书列表)', path: '/admin/books', icon: 'Reading', roles: ['super_admin', 'cataloger'] },
+  { title: '副本馆藏管理', path: '/admin/copies', icon: 'Reading', roles: ['super_admin', 'cataloger', 'circulation', 'front_desk'] },
+  { title: '分类管理 (中图分类)', path: '/admin/categories', icon: 'Reading', roles: ['super_admin', 'cataloger'] },
+  { title: '借还办理 (借书/还书)', path: '/admin/borrow', icon: 'Document', roles: ['super_admin', 'circulation', 'front_desk'] },
+  { title: '借阅记录检索', path: '/admin/borrow-records', icon: 'Document', roles: ['super_admin', 'circulation', 'front_desk'] },
+  { title: '预约管理', path: '/admin/reservations', icon: 'Document', roles: ['super_admin', 'circulation', 'front_desk'] },
+  { title: '自习室与座位预约', path: '/admin/seat-reservations', icon: 'OfficeBuilding', roles: ['super_admin', 'front_desk'] },
+  { title: '罚款管理与清缴', path: '/admin/fines', icon: 'Money', roles: ['super_admin', 'circulation', 'front_desk'] },
+  { title: '业务统计与趋势报表', path: '/admin/reports', icon: 'DataAnalysis', roles: ['super_admin', 'circulation'] },
+  { title: '系统参数设置', path: '/admin/config', icon: 'Setting', roles: ['super_admin'] },
+  { title: '公告通知发布管理', path: '/admin/announcements', icon: 'Setting', roles: ['super_admin', 'circulation'] },
+  { title: '读者留言与诉求反馈', path: '/admin/feedback', icon: 'Setting', roles: ['super_admin', 'circulation', 'front_desk'] },
+  { title: '管理员操作日志审计', path: '/admin/logs', icon: 'Setting', roles: ['super_admin'] },
+  { title: '前往读者前台门户', path: '/portal/home', icon: 'Compass', roles: ['super_admin', 'cataloger', 'circulation', 'front_desk'] },
+]
+
+const filteredMenuItems = computed(() => {
+  const query = cmdSearchQuery.value.trim().toLowerCase()
+  return allNavItems.filter(item => {
+    const hasRole = !item.roles || item.roles.includes(userStore.roleKey)
+    if (!hasRole) return false
+    if (!query) return true
+    return item.title.toLowerCase().includes(query) || item.path.toLowerCase().includes(query)
+  })
+})
+
+const handleNavigate = (path) => {
+  commandPaletteVisible.value = false
+  cmdSearchQuery.value = ''
+  router.push(path)
+}
+
+const handleKeydown = (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+    e.preventDefault()
+    commandPaletteVisible.value = !commandPaletteVisible.value
+  }
+}
+
+onMounted(() => {
+  window.addEventListener('keydown', handleKeydown)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', handleKeydown)
+})
 </script>
 
 <style scoped>
