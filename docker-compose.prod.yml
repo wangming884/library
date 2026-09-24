@@ -3,7 +3,7 @@ name: library-management
 services:
   app:
     # 从 Docker Hub 拉取已构建好的镜像
-    image: ${DOCKER_IMAGE:-your-dockerhub-username/library-management:latest}
+    image: ${DOCKER_IMAGE:-leemingze/library-management:v1.0.0}
     container_name: library-app-prod
     restart: always
     ports:
