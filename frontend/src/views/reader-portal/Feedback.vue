@@ -1,65 +1,107 @@
 <template>
   <div class="feedback-container">
-    <el-row :gutter="20">
-      <!-- 提交反馈 -->
-      <el-col :span="10">
-        <el-card>
-          <template #header><span>提交反馈</span></template>
-          <el-form ref="formRef" :model="form" :rules="rules" label-width="70px">
-            <el-form-item label="类型" prop="type">
-              <el-select v-model="form.type" placeholder="请选择反馈类型" style="width: 100%;">
-                <el-option label="购书建议" :value="1" />
-                <el-option label="图书丢失" :value="2" />
-                <el-option label="投诉" :value="3" />
-                <el-option label="其他" :value="4" />
-              </el-select>
+    <el-row :gutter="24">
+      <!-- 提交反馈 Form -->
+      <el-col :xs="24" :md="10" class="compose-col">
+        <el-card shadow="never" class="feedback-form-card">
+          <template #header>
+            <div class="card-header-title">
+              <el-icon color="#409EFF"><EditPen /></el-icon>
+              <span>读者留言与诉求提交</span>
+            </div>
+          </template>
+
+          <el-form ref="formRef" :model="form" :rules="rules" label-position="top">
+            <el-form-item label="反馈类型" prop="type">
+              <el-radio-group v-model="form.type" class="type-radio-group">
+                <el-radio-button :label="1">📚 购书建议</el-radio-button>
+                <el-radio-button :label="2">🔍 图书丢失</el-radio-button>
+                <el-radio-button :label="3">📢 服务建议</el-radio-button>
+                <el-radio-button :label="4">💬 其他诉求</el-radio-button>
+              </el-radio-group>
             </el-form-item>
-            <el-form-item label="标题" prop="title">
-              <el-input v-model="form.title" placeholder="请输入标题" maxlength="100" show-word-limit />
+
+            <el-form-item label="留言标题" prop="title">
+              <el-input
+                v-model="form.title"
+                placeholder="简明扼要概括您的诉求 (例如：建议采购《深入理解计算机系统》第4版)"
+                maxlength="80"
+                show-word-limit
+              />
             </el-form-item>
-            <el-form-item label="内容" prop="content">
+
+            <el-form-item label="详细说明" prop="content">
               <el-input
                 v-model="form.content"
                 type="textarea"
                 :rows="6"
-                placeholder="请详细描述您的反馈内容"
+                placeholder="请详细描述具体情况，如书名、ISBN、遇到故障的设备位置或意见细节，图书馆管理员将尽快查阅并回复您..."
                 maxlength="1000"
                 show-word-limit
               />
             </el-form-item>
-            <el-form-item>
-              <el-button type="primary" :loading="submitting" @click="handleSubmit">提交反馈</el-button>
-              <el-button @click="resetForm">重置</el-button>
+
+            <el-form-item class="form-btn-row">
+              <el-button type="primary" :loading="submitting" @click="handleSubmit">
+                确认提交反馈
+              </el-button>
+              <el-button @click="resetForm">重置表单</el-button>
             </el-form-item>
           </el-form>
         </el-card>
       </el-col>
 
-      <!-- 我的反馈 -->
-      <el-col :span="14">
-        <el-card>
-          <template #header><span>我的反馈</span></template>
-          <div class="feedback-list" v-loading="loading">
-            <el-empty v-if="feedbackList.length === 0" description="暂无反馈记录" />
-            <div v-for="item in feedbackList" :key="item.id" class="feedback-item">
-              <div class="feedback-header">
-                <el-tag size="small" type="info">{{ feedbackTypeLabel(item.type) }}</el-tag>
-                <span class="feedback-title">{{ item.title }}</span>
+      <!-- 我的反馈记录 -->
+      <el-col :xs="24" :md="14" class="list-col">
+        <el-card shadow="never" class="feedback-list-card">
+          <template #header>
+            <div class="list-header-row">
+              <div class="card-header-title">
+                <el-icon color="#67C23A"><ChatLineRound /></el-icon>
+                <span>我的历史留言与答复</span>
+              </div>
+              
+              <!-- 状态筛选 -->
+              <el-radio-group v-model="statusFilter" size="small">
+                <el-radio-button label="all">全部</el-radio-button>
+                <el-radio-button label="replied">已回复</el-radio-button>
+                <el-radio-button label="pending">处理中</el-radio-button>
+              </el-radio-group>
+            </div>
+          </template>
+
+          <div class="feedback-list-body" v-loading="loading">
+            <el-empty v-if="filteredList.length === 0" description="暂无符合条件的留言记录" />
+
+            <div v-for="item in filteredList" :key="item.id" class="feedback-card-item">
+              <div class="feedback-top-line">
+                <el-tag size="small" :type="feedbackTagColor(item.type)" effect="light">
+                  {{ feedbackTypeLabel(item.type) }}
+                </el-tag>
+                <h4 class="feedback-headline" :title="item.title">{{ item.title }}</h4>
                 <el-tag :type="item.status === 1 ? 'success' : 'warning'" size="small">
-                  {{ item.status === 1 ? '已回复' : '未回复' }}
+                  {{ item.status === 1 ? '已答复' : '待处理' }}
                 </el-tag>
               </div>
-              <div class="feedback-content">{{ item.content }}</div>
-              <div class="feedback-reply" v-if="item.reply">
-                <el-divider content-position="left">管理员回复</el-divider>
-                <p>{{ item.reply }}</p>
+
+              <p class="feedback-desc-text">{{ item.content }}</p>
+
+              <!-- 管理员回复卡片 -->
+              <div class="admin-reply-box" v-if="item.reply">
+                <div class="reply-badge">
+                  <el-icon><Service /></el-icon>
+                  <span>图书馆管理员回复</span>
+                  <span class="reply-time-str" v-if="item.replyTime">{{ item.replyTime }}</span>
+                </div>
+                <div class="reply-content-text">{{ item.reply }}</div>
               </div>
-              <div class="feedback-time">
-                <span>提交时间：{{ item.createTime }}</span>
-                <span v-if="item.replyTime">回复时间：{{ item.replyTime }}</span>
+
+              <div class="feedback-footer-line">
+                <span>提交时间：{{ item.createTime || '-' }}</span>
               </div>
             </div>
           </div>
+
           <el-pagination
             class="pagination"
             v-model:current-page="pagination.page"
@@ -77,36 +119,53 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
+import { EditPen, ChatLineRound, Service } from '@element-plus/icons-vue'
 import { submitFeedback, myFeedback } from '../../api/modules/system'
 
 const formRef = ref(null)
 const submitting = ref(false)
 const loading = ref(false)
 const feedbackList = ref([])
+const statusFilter = ref('all')
 
 const form = reactive({
-  type: '',
+  type: 1,
   title: '',
   content: ''
 })
 
 const feedbackTypeLabel = (type) => {
-  const map = { 1: '购书建议', 2: '图书丢失', 3: '投诉', 4: '其他' }
+  const map = { 1: '购书建议', 2: '图书丢失', 3: '服务建议', 4: '其他' }
   return map[type] || '其他'
+}
+
+const feedbackTagColor = (type) => {
+  const map = { 1: 'primary', 2: 'danger', 3: 'warning', 4: 'info' }
+  return map[type] || 'info'
 }
 
 const rules = {
   type: [{ required: true, message: '请选择反馈类型', trigger: 'change' }],
-  title: [{ required: true, message: '请输入标题', trigger: 'blur' }],
-  content: [{ required: true, message: '请输入反馈内容', trigger: 'blur' }]
+  title: [{ required: true, message: '请输入反馈标题', trigger: 'blur' }],
+  content: [{ required: true, message: '请详细描述诉求内容', trigger: 'blur' }]
 }
 
 const pagination = reactive({
   page: 1,
   pageSize: 5,
   total: 0
+})
+
+const filteredList = computed(() => {
+  if (statusFilter.value === 'replied') {
+    return feedbackList.value.filter(item => item.status === 1)
+  }
+  if (statusFilter.value === 'pending') {
+    return feedbackList.value.filter(item => item.status !== 1)
+  }
+  return feedbackList.value
 })
 
 const handleSubmit = async () => {
@@ -120,7 +179,7 @@ const handleSubmit = async () => {
       title: form.title,
       content: form.content
     })
-    ElMessage.success('反馈提交成功')
+    ElMessage.success('反馈已成功提交，工作人员将尽快回复！')
     resetForm()
     fetchFeedback()
   } catch {
@@ -131,7 +190,7 @@ const handleSubmit = async () => {
 }
 
 const resetForm = () => {
-  form.type = ''
+  form.type = 1
   form.title = ''
   form.content = ''
   formRef.value?.resetFields()
@@ -144,10 +203,10 @@ const fetchFeedback = async () => {
       page: pagination.page,
       size: pagination.pageSize
     })
-    feedbackList.value = res.data.records || res.data.list || res.data
+    feedbackList.value = res.data.records || res.data.list || res.data || []
     pagination.total = res.data.total || 0
   } catch {
-    // handled
+    feedbackList.value = []
   } finally {
     loading.value = false
   }
@@ -162,51 +221,122 @@ onMounted(() => {
 .feedback-container {
   width: 100%;
 }
-.feedback-item {
+
+.feedback-form-card,
+.feedback-list-card {
+  border-radius: 12px;
+  margin-bottom: 20px;
+}
+
+.card-header-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.type-radio-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.form-btn-row {
+  margin-top: 20px;
+  margin-bottom: 0;
+}
+
+.list-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.feedback-list-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.feedback-card-item {
+  background: #fdfdfd;
+  border: 1px solid #ebeef5;
+  border-radius: 10px;
   padding: 16px;
-  border-bottom: 1px solid #ebeef5;
+  transition: all 0.2s;
 }
-.feedback-item:last-child {
-  border-bottom: none;
+
+.feedback-card-item:hover {
+  background: #f9fafb;
+  border-color: #dcdfe6;
 }
-.feedback-header {
+
+.feedback-top-line {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
 }
-.feedback-title {
+
+.feedback-headline {
   flex: 1;
-  font-size: 15px;
-  font-weight: 600;
-  color: #303133;
-}
-.feedback-content {
-  font-size: 14px;
-  color: #606266;
-  line-height: 1.6;
-  margin-bottom: 4px;
-}
-.feedback-reply {
-  margin-top: 4px;
-}
-.feedback-reply p {
-  font-size: 14px;
-  color: #409EFF;
-  background: #ecf5ff;
-  padding: 10px 14px;
-  border-radius: 4px;
   margin: 0;
+  font-size: 15px;
+  color: #1f2937;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.feedback-time {
+
+.feedback-desc-text {
+  margin: 0 0 12px;
+  font-size: 14px;
+  color: #4b5563;
+  line-height: 1.6;
+}
+
+.admin-reply-box {
+  background: #eff6ff;
+  border-left: 4px solid #3b82f6;
+  border-radius: 0 8px 8px 0;
+  padding: 12px 14px;
+  margin-bottom: 10px;
+}
+
+.reply-badge {
   display: flex;
-  gap: 20px;
-  font-size: 12px;
-  color: #909399;
-  margin-top: 8px;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #1d4ed8;
+  margin-bottom: 6px;
 }
+
+.reply-time-str {
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: normal;
+  color: #93c5fd;
+}
+
+.reply-content-text {
+  font-size: 13px;
+  color: #1e40af;
+  line-height: 1.6;
+}
+
+.feedback-footer-line {
+  font-size: 12px;
+  color: #9ca3af;
+}
+
 .pagination {
-  margin-top: 16px;
+  margin-top: 18px;
   display: flex;
   justify-content: flex-end;
 }

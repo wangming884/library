@@ -31,5 +31,15 @@ export default defineConfig({
   build: {
     outDir: '../src/main/resources/static',
     emptyOutDir: true,
+    chunkSizeWarningLimit: 1500,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vue-vendor': ['vue', 'vue-router', 'pinia'],
+          'element-plus': ['element-plus', '@element-plus/icons-vue'],
+          'echarts': ['echarts'],
+        }
+      }
+    }
   }
 })

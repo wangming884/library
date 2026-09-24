@@ -1,0 +1,38 @@
+name: library-management
+
+services:
+  app:
+    # 从 Docker Hub 拉取已构建好的镜像
+    image: ${DOCKER_IMAGE:-your-dockerhub-username/library-management:latest}
+    container_name: library-app-prod
+    restart: always
+    ports:
+      - "${APP_PORT:-8080}:8080"
+    environment:
+      TZ: Asia/Shanghai
+      # 数据库连接参数 (连接云服务器已有的 MySQL)
+      DB_HOST: ${DB_HOST:-host.docker.internal}
+      DB_PORT: ${DB_PORT:-3306}
+      DB_NAME: ${DB_NAME:-library_db}
+      DB_USERNAME: ${DB_USERNAME:-root}
+      DB_PASSWORD: ${DB_PASSWORD:?Please set DB_PASSWORD in .env.prod}
+      # 支持覆盖完整 JDBC 字符串
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL:-jdbc:mysql://${DB_HOST:-host.docker.internal}:${DB_PORT:-3306}/${DB_NAME:-library_db}?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true}
+      LIBRARY_UPLOAD_DIR: /data/library/uploads
+      # 生产环境 JVM 堆内存与垃圾回收优化
+      JAVA_OPTS: "${JAVA_OPTS:--Xms512m -Xmx1024m -XX:+UseG1GC}"
+    extra_hosts:
+      # 当云服务器 MySQL 直接运行在服务器宿主机上时，可通过 host.docker.internal 访问宿主机服务
+      - "host.docker.internal:host-gateway"
+    volumes:
+      # 持久化读者上传的封面等附件至宿主机 ./uploads 目录
+      - ./uploads:/data/library/uploads
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
+    deploy:
+      resources:
+        limits:
+          memory: 2048M
